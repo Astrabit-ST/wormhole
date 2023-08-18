@@ -15,19 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod render {
-    mod state;
-    pub use state::State;
+#[repr(C)]
+#[derive(bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, Default)]
+#[derive(PartialEq)]
+pub struct Vertex {
+    pub position: glam::Vec3,
+    pub tex_coords: glam::Vec2,
+}
 
-    mod camera;
-    pub use camera::Camera;
-
-    mod transform;
-    pub use transform::Transform;
-
-    pub mod object;
-    pub use object::Object;
-
-    mod vertex;
-    pub use vertex::Vertex;
+impl Vertex {
+    pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
+        const ATTRS: [wgpu::VertexAttribute; 2] =
+            wgpu::vertex_attr_array![0 => Float32x3, 2 => Float32x2];
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &ATTRS,
+        }
+    }
 }

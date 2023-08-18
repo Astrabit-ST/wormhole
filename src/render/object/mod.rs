@@ -14,20 +14,23 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::render;
 
-pub mod render {
-    mod state;
-    pub use state::State;
+mod shader;
+pub use shader::Shader;
 
-    mod camera;
-    pub use camera::Camera;
+pub struct Object {
+    pub transform: render::Transform,
 
-    mod transform;
-    pub use transform::Transform;
+    vertices: wgpu::Buffer,
+    vertex_count: u32,
+}
 
-    pub mod object;
-    pub use object::Object;
-
-    mod vertex;
-    pub use vertex::Vertex;
+impl Object {
+    pub fn draw<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>) {
+        Shader::bind(render_pass);
+        self.transform.bind(render_pass, 0);
+        render_pass.set_vertex_buffer(0, self.vertices.slice(..));
+        render_pass.draw(0..self.vertex_count, 0..1);
+    }
 }
