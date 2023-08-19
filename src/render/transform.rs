@@ -57,12 +57,12 @@ impl Transform {
         }
     }
 
-    pub fn reupload(&self, state: &render::State) {
+    pub fn reupload(&self, render_state: &render::State) {
         // WGSL doesn't have a decent concept of a quaternion.
         // See https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
         let matrix =
             glam::Mat4::from_translation(self.position) * glam::Mat4::from_quat(self.rotation);
-        state
+        render_state
             .queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[matrix]));
     }

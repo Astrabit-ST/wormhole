@@ -15,11 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
+
 use once_cell::sync::OnceCell;
 use wgpu::util::DeviceExt;
+use winit::event::VirtualKeyCode;
 
+#[derive(Debug)]
 pub struct Camera {
-    data: Data,
+    projection: Projection,
+    transform: Transform,
 
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
@@ -27,10 +31,30 @@ pub struct Camera {
 
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
-struct Data {
-    eye: glam::Vec3,
-    target: glam::Vec3,
-    up: glam::Vec3,
+struct Transform {
+    position: glam::Vec3,
+
+    yaw: f32,
+    pitch: f32,
+}
+
+impl Transform {
+    fn build_translation_matrix(&self) -> glam::Mat4 {
+        // glam::Mat4::look_at_rh(glam::vec3(0.0, 1.0, 2.0), glam::Vec3::ZERO, glam::Vec3::Y)
+        let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
+        let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
+
+        glam::Mat4::look_to_rh(
+            self.position,
+            glam::Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
+            glam::Vec3::Y,
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+#[derive(PartialEq)]
+struct Projection {
     aspect: f32,
     fovy: f32,
     znear: f32,
@@ -44,18 +68,12 @@ pub const OPENGL_TO_WGPU_MATRIX: glam::Mat4 = glam::Mat4::from_cols_array_2d(&[
     [0.0, 0.0, 0.0, 1.0],
 ]);
 
-impl Data {
-    fn build_view_projection_matrix(self) -> glam::Mat4 {
-        let view = ::glam::Mat4::look_at_rh(self.eye, self.target, self.up);
+const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 
-        let proj = glam::Mat4::perspective_rh_gl(
-            self.fovy.to_radians(),
-            self.aspect,
-            self.znear,
-            self.zfar,
-        );
-
-        OPENGL_TO_WGPU_MATRIX * proj * view
+impl Projection {
+    fn build_projection_matrix(self) -> glam::Mat4 {
+        OPENGL_TO_WGPU_MATRIX
+            * glam::Mat4::perspective_rh_gl(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
@@ -63,26 +81,29 @@ static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Camera {
     pub fn new(render_state: &render::State) -> Self {
-        let data = Data {
-            eye: glam::vec3(2.0, 2.0, 4.0),
-            // have it look at the origin
-            target: glam::Vec3::ZERO,
-            // which way is "up"
-            up: glam::Vec3::Y,
+        let transform = Transform {
+            position: glam::Vec3::new(0.0, 0.0, 0.0),
+
+            yaw: -90_f32.to_radians(),
+            pitch: -20_f32.to_radians(),
+        };
+        let projection = Projection {
             aspect: render_state.surface_config.width as f32
                 / render_state.surface_config.height as f32,
             fovy: 45.0,
             znear: 0.1,
             zfar: 100.0,
         };
-        let proj = data.build_view_projection_matrix();
+
+        let view_matrix =
+            transform.build_translation_matrix() * projection.build_projection_matrix();
 
         let buffer = render_state
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("camera buffer"),
-                contents: bytemuck::cast_slice(&[proj]),
-                usage: wgpu::BufferUsages::UNIFORM,
+                contents: bytemuck::cast_slice(&[view_matrix]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
         let bind_group = render_state
@@ -97,18 +118,75 @@ impl Camera {
             });
 
         Camera {
-            data,
+            projection,
+            transform,
+
             buffer,
             bind_group,
         }
     }
 
-    pub fn reupload(&self, state: &render::State) {
-        let proj = self.data.build_view_projection_matrix();
+    pub fn update(
+        &mut self,
+        render_state: &render::State,
+        input: &winit_input_helper::WinitInputHelper,
+    ) {
+        let dt = 1.0 / 144.0;
 
-        state
+        if let Some(size) = input.window_resized() {
+            self.projection.aspect = size.width as f32 / size.height as f32;
+        }
+
+        // Move forward/backward and left/right
+        let (yaw_sin, yaw_cos) = self.transform.yaw.sin_cos();
+        let forward = glam::Vec3::new(yaw_cos, 0.0, yaw_sin).normalize();
+        let right = glam::Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+
+        if input.key_held(VirtualKeyCode::W) {
+            self.transform.position += forward * 2.0 * dt;
+        }
+
+        if input.key_held(VirtualKeyCode::S) {
+            self.transform.position -= forward * 2.0 * dt;
+        }
+
+        if input.key_held(VirtualKeyCode::D) {
+            self.transform.position += right * 2.0 * dt;
+        }
+
+        if input.key_held(VirtualKeyCode::A) {
+            self.transform.position -= right * 2.0 * dt;
+        }
+
+        if input.key_held(VirtualKeyCode::Space) {
+            self.transform.position.y += 2.0 * dt;
+        }
+
+        if input.key_held(VirtualKeyCode::LShift) {
+            self.transform.position.y -= 2.0 * dt;
+        }
+
+        let (mx, my) = input.mouse_diff();
+        self.transform.yaw += mx * 0.4 * dt;
+        self.transform.pitch -= my * 0.4 * dt;
+
+        // Keep the camera's angle from going too high/low.
+        if self.transform.pitch < -SAFE_FRAC_PI_2 {
+            self.transform.pitch = -SAFE_FRAC_PI_2;
+        } else if self.transform.pitch > SAFE_FRAC_PI_2 {
+            self.transform.pitch = SAFE_FRAC_PI_2;
+        }
+
+        self.reupload(render_state);
+    }
+
+    pub fn reupload(&self, render_state: &render::State) {
+        let view_matrix =
+            self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
+
+        render_state
             .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[proj]));
+            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[view_matrix]));
     }
 
     pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {

@@ -7,8 +7,16 @@ fn main() {
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
         .with_title("wormhole")
+        .with_visible(false)
         .build(&event_loop)
         .expect("failed to create window");
+
+    if let Err(e) = window
+        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+        .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Locked))
+    {
+        println!("error locking cursor {e}");
+    }
 
     let mut input = winit_input_helper::WinitInputHelper::new();
 
@@ -19,7 +27,10 @@ fn main() {
     render_state.initialize_bind_group_layouts();
     render_state.initialize_shaders();
 
-    let camera = wormhole::render::Camera::new(&render_state);
+    window.set_visible(true);
+    window.set_cursor_visible(false);
+
+    let mut camera = wormhole::render::Camera::new(&render_state);
     let object = wormhole::object::Object::new(&render_state);
 
     event_loop.run(move |event, _, control_flow| {
@@ -31,6 +42,19 @@ fn main() {
 
             if input.close_requested() {
                 control_flow.set_exit();
+            }
+
+            camera.update(&render_state, &input);
+
+            if window.has_focus()
+                && window
+                    .set_cursor_position(winit::dpi::LogicalPosition::new(
+                        render_state.surface_config.width / 2,
+                        render_state.surface_config.height / 2,
+                    ))
+                    .is_err()
+            {
+                println!("go fuck yourself wayland");
             }
 
             let output = match render_state.surface.get_current_texture() {
