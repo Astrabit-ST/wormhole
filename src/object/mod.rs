@@ -21,16 +21,34 @@ pub use shader::Shader;
 
 pub struct Object {
     pub transform: render::Transform,
-
-    vertices: wgpu::Buffer,
-    vertex_count: u32,
+    pub mesh: render::Mesh,
 }
 
 impl Object {
-    pub fn draw<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>) {
+    pub fn new(render_state: &render::State) -> Self {
+        let transform = render::Transform::new(render_state);
+        let (models, _) = tobj::load_obj(
+            "assets/meshes/cube.obj",
+            &tobj::LoadOptions {
+                single_index: true,
+                triangulate: true,
+                ..Default::default()
+            },
+        )
+        .expect("failed to load models");
+        let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
+
+        Self { transform, mesh }
+    }
+
+    pub fn draw<'rpass>(
+        &'rpass self,
+        camera: &'rpass render::Camera,
+        render_pass: &mut wgpu::RenderPass<'rpass>,
+    ) {
         Shader::bind(render_pass);
-        self.transform.bind(render_pass, 0);
-        render_pass.set_vertex_buffer(0, self.vertices.slice(..));
-        render_pass.draw(0..self.vertex_count, 0..1);
+        camera.bind(render_pass, 0);
+        self.transform.bind(render_pass, 1);
+        self.mesh.draw(render_pass);
     }
 }

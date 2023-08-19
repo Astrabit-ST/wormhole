@@ -16,6 +16,7 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
 use once_cell::sync::OnceCell;
+use wgpu::util::DeviceExt;
 
 pub struct Transform {
     position: glam::Vec3,
@@ -28,6 +29,50 @@ pub struct Transform {
 static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Transform {
+    pub fn new(render_state: &render::State) -> Self {
+        let buffer = render_state
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("transform buffer"),
+                contents: bytemuck::bytes_of(&glam::Mat4::IDENTITY),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+
+        let bind_group = render_state
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("transform bind group layout"),
+                layout: Transform::bind_group_layout(),
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
+
+        Self {
+            position: glam::Vec3::ZERO,
+            rotation: glam::Quat::IDENTITY,
+            bind_group,
+            buffer,
+        }
+    }
+
+    pub fn reupload(&self, state: &render::State) {
+        // WGSL doesn't have a decent concept of a quaternion.
+        // See https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
+        let matrix =
+            glam::Mat4::from_translation(self.position) * glam::Mat4::from_quat(self.rotation);
+        state
+            .queue
+            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[matrix]));
+    }
+
+    pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {
+        render_pass.set_bind_group(index, &self.bind_group, &[]);
+    }
+}
+
+impl Transform {
     pub fn create_bind_group_layout(render_state: &render::State) {
         let layout =
             render_state
@@ -35,7 +80,7 @@ impl Transform {
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("camera bind group layout"),
                     entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 0,
                         visibility: wgpu::ShaderStages::VERTEX,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
@@ -52,19 +97,5 @@ impl Transform {
 
     pub fn bind_group_layout() -> &'static wgpu::BindGroupLayout {
         LAYOUT.get().expect("layout uninitialized")
-    }
-
-    pub fn reupload(&self, state: &render::State) {
-        // WGSL doesn't have a decent concept of a quaternion.
-        // See https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
-        let matrix =
-            glam::Mat4::from_translation(self.position) * glam::Mat4::from_quat(self.rotation);
-        state
-            .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[matrix]));
-    }
-
-    pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {
-        render_pass.set_bind_group(index, &self.bind_group, &[]);
     }
 }

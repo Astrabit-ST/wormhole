@@ -92,7 +92,7 @@ impl State {
     /// Failure to do so will result in a panic.
     // FIXME: enforce this behaviour with generics?
     pub fn initialize_shaders(&self) {
-        super::object::Shader::create(self);
+        crate::object::Shader::create(self);
     }
 
     /// Initializes the bind group layouts of all uniforms passed to shaders.

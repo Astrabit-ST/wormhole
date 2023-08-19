@@ -25,9 +25,11 @@ pub mod render {
     mod transform;
     pub use transform::Transform;
 
-    pub mod object;
-    pub use object::Object;
-
     mod vertex;
     pub use vertex::Vertex;
+
+    mod mesh;
+    pub use mesh::Mesh;
 }
+
+pub mod object;
