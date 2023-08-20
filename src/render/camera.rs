@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::render;
+use crate::{input, render};
 
 use once_cell::sync::OnceCell;
 use wgpu::util::DeviceExt;
@@ -90,7 +90,7 @@ impl Camera {
         let projection = Projection {
             aspect: render_state.surface_config.width as f32
                 / render_state.surface_config.height as f32,
-            fovy: 45.0,
+            fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,
         };
@@ -126,47 +126,39 @@ impl Camera {
         }
     }
 
-    pub fn update(
-        &mut self,
-        render_state: &render::State,
-        input: &winit_input_helper::WinitInputHelper,
-    ) {
+    pub fn update(&mut self, render_state: &render::State, input: &input::State) {
         let dt = 1.0 / 144.0;
-
-        if let Some(size) = input.window_resized() {
-            self.projection.aspect = size.width as f32 / size.height as f32;
-        }
 
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = self.transform.yaw.sin_cos();
         let forward = glam::Vec3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right = glam::Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize();
 
-        if input.key_held(VirtualKeyCode::W) {
+        if input.keyboard.held(VirtualKeyCode::W) {
             self.transform.position += forward * 2.0 * dt;
         }
 
-        if input.key_held(VirtualKeyCode::S) {
-            self.transform.position -= forward * 2.0 * dt;
-        }
-
-        if input.key_held(VirtualKeyCode::D) {
-            self.transform.position += right * 2.0 * dt;
-        }
-
-        if input.key_held(VirtualKeyCode::A) {
+        if input.keyboard.held(VirtualKeyCode::A) {
             self.transform.position -= right * 2.0 * dt;
         }
 
-        if input.key_held(VirtualKeyCode::Space) {
+        if input.keyboard.held(VirtualKeyCode::S) {
+            self.transform.position -= forward * 2.0 * dt;
+        }
+
+        if input.keyboard.held(VirtualKeyCode::D) {
+            self.transform.position += right * 2.0 * dt;
+        }
+
+        if input.keyboard.held(VirtualKeyCode::Space) {
             self.transform.position.y += 2.0 * dt;
         }
 
-        if input.key_held(VirtualKeyCode::LShift) {
+        if input.keyboard.held(VirtualKeyCode::LShift) {
             self.transform.position.y -= 2.0 * dt;
         }
 
-        let (mx, my) = input.mouse_diff();
+        let (mx, my) = input.mouse.mouse_diff();
         self.transform.yaw += mx * 0.4 * dt;
         self.transform.pitch -= my * 0.4 * dt;
 

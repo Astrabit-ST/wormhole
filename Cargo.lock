@@ -2496,14 +2496,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winit_input_helper"
-version = "0.14.1"
-source = "git+https://github.com/TheButlah/winit_input_helper?branch=update_pr_20#d0958080d24de3f4da5698d2775cad4c77760228"
-dependencies = [
- "winit",
-]
-
-[[package]]
 name = "winnow"
 version = "0.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2529,7 +2521,6 @@ dependencies = [
  "wgpu 0.17.0",
  "wgpu_glyph",
  "winit",
- "winit_input_helper",
 ]
 
 [[package]]

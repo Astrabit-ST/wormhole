@@ -1,5 +1,5 @@
 #![warn(rust_2018_idioms, clippy::pedantic)]
-#![allow(clippy::too_many_lines)]
+#![allow(clippy::new_without_default)]
 
 fn main() {
     color_backtrace::install();
@@ -8,6 +8,7 @@ fn main() {
     let window = winit::window::WindowBuilder::new()
         .with_title("wormhole")
         .with_visible(false)
+        // .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         .build(&event_loop)
         .expect("failed to create window");
 
@@ -18,14 +19,14 @@ fn main() {
         println!("error locking cursor {e}");
     }
 
-    let mut input = winit_input_helper::WinitInputHelper::new();
-
     // SAFETY:
     // This function is unsafe because the window must be valid as long as the surface is valid.
     // Because the surface is created after the window, the drop order ensures that the surface is dropped after the window.
     let mut render_state = unsafe { pollster::block_on(wormhole::render::State::new(&window)) };
     render_state.initialize_bind_group_layouts();
     render_state.initialize_shaders();
+
+    let mut input_state = wormhole::input::State::new();
 
     window.set_visible(true);
     window.set_cursor_visible(false);
@@ -34,28 +35,24 @@ fn main() {
     let object = wormhole::object::Object::new(&render_state);
 
     event_loop.run(move |event, _, control_flow| {
-        // Process the event. Once the last event is processed, input.update will return true and we can execute our logic.
-        if input.update(&event) {
-            if let Some(size) = input.window_resized() {
+        // Process the event. Once the last event is processed, input.process will return true and we can execute our logic.
+        if input_state.process(&event) {
+            if let Some(size) = input_state.new_window_size() {
                 render_state.resize(size);
             }
 
-            if input.close_requested() {
+            if input_state.close_requested() {
                 control_flow.set_exit();
             }
 
-            camera.update(&render_state, &input);
-
-            if window.has_focus()
-                && window
-                    .set_cursor_position(winit::dpi::LogicalPosition::new(
-                        render_state.surface_config.width / 2,
-                        render_state.surface_config.height / 2,
-                    ))
-                    .is_err()
+            if input_state
+                .keyboard
+                .pressed(winit::event::VirtualKeyCode::Escape)
             {
-                println!("go fuck yourself wayland");
+                control_flow.set_exit();
             }
+
+            camera.update(&render_state, &input_state);
 
             let output = match render_state.surface.get_current_texture() {
                 Ok(texture) => texture,

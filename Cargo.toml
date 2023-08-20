@@ -12,7 +12,6 @@ resolver = "2"
 winit = "0.28.6"
 
 # Input
-winit_input_helper = { version = "0.14.1", git = "https://github.com/TheButlah/winit_input_helper", branch = "update_pr_20" }
 gilrs = "0.10.2"
 
 # Graphics

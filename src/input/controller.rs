@@ -14,38 +14,22 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-#![warn(rust_2018_idioms)]
-#![allow(clippy::new_without_default)]
 
-pub mod input {
-    mod keyboard;
-    pub use keyboard::Keyboard;
-
-    mod mouse;
-    pub use mouse::Mouse;
-
-    mod controller;
-    pub use controller::Controller;
-
-    mod state;
-    pub use state::State;
+pub struct Controller {
+    gilrs: gilrs::Gilrs,
 }
 
-pub mod render {
-    mod state;
-    pub use state::State;
+impl Controller {
+    pub fn new() -> Self {
+        let gilrs = match gilrs::Gilrs::new() {
+            Ok(g) => g,
+            Err(gilrs::Error::NotImplemented(g)) => {
+                eprintln!("controller not supported on this platform");
+                g
+            }
+            Err(e) => panic!("gilrs error: {e}"),
+        };
 
-    mod camera;
-    pub use camera::Camera;
-
-    mod transform;
-    pub use transform::Transform;
-
-    mod vertex;
-    pub use vertex::Vertex;
-
-    mod mesh;
-    pub use mesh::Mesh;
+        Self { gilrs }
+    }
 }
-
-pub mod object;
