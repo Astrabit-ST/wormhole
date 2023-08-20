@@ -18,15 +18,19 @@ use crate::render;
 
 mod shader;
 pub use shader::Shader;
+mod textures;
+pub use textures::Textures;
 
 pub struct Object {
     pub transform: render::Transform,
     pub mesh: render::Mesh,
+    pub textures: textures::Textures,
 }
 
 impl Object {
     pub fn new(render_state: &render::State) -> Self {
         let transform = render::Transform::new(render_state);
+
         let (models, _) = tobj::load_obj(
             "assets/meshes/cube.obj",
             &tobj::LoadOptions {
@@ -38,7 +42,16 @@ impl Object {
         .expect("failed to load models");
         let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
 
-        Self { transform, mesh }
+        let albedo =
+            image::open("assets/textures/cube-diffuse.jpg").expect("failed to load albedo");
+        let albedo = render::Texture::from_image(render_state, &albedo);
+        let textures = Textures::new(render_state, albedo);
+
+        Self {
+            transform,
+            mesh,
+            textures,
+        }
     }
 
     pub fn draw<'rpass>(
@@ -49,6 +62,7 @@ impl Object {
         Shader::bind(render_pass);
         camera.bind(render_pass, 0);
         self.transform.bind(render_pass, 1);
+        self.textures.bind(render_pass, 2);
         self.mesh.draw(render_pass);
     }
 }

@@ -33,12 +33,15 @@ impl Shader {
                 bind_group_layouts: &[
                     render::Camera::bind_group_layout(),
                     render::Transform::bind_group_layout(),
+                    super::Textures::bind_group_layout(),
                 ],
                 push_constant_ranges: &[],
             });
+
         let shader = render_state
             .device
             .create_shader_module(wgpu::include_wgsl!("object.wgsl"));
+
         let pipeline =
             render_state
                 .device

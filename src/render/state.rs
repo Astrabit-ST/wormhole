@@ -100,6 +100,7 @@ impl State {
     pub fn initialize_bind_group_layouts(&self) {
         super::Camera::create_bind_group_layout(self);
         super::Transform::create_bind_group_layout(self);
+        crate::object::Textures::create_bind_group_layout(self);
     }
 
     pub fn reconfigure_surface(&self) {

@@ -41,6 +41,9 @@ pub mod render {
     mod transform;
     pub use transform::Transform;
 
+    mod texture;
+    pub use texture::Texture;
+
     mod vertex;
     pub use vertex::Vertex;
 
