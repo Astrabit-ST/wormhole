@@ -126,41 +126,39 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, render_state: &render::State, input: &input::State) {
-        let dt = 1.0 / 144.0;
-
+    pub fn update(&mut self, render_state: &render::State, input: &input::State, dt: f32) {
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = self.transform.yaw.sin_cos();
         let forward = glam::Vec3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right = glam::Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize();
 
         if input.keyboard.held(VirtualKeyCode::W) {
-            self.transform.position += forward * 2.0 * dt;
+            self.transform.position += forward * 4.0 * dt;
         }
 
         if input.keyboard.held(VirtualKeyCode::A) {
-            self.transform.position -= right * 2.0 * dt;
+            self.transform.position -= right * 4.0 * dt;
         }
 
         if input.keyboard.held(VirtualKeyCode::S) {
-            self.transform.position -= forward * 2.0 * dt;
+            self.transform.position -= forward * 4.0 * dt;
         }
 
         if input.keyboard.held(VirtualKeyCode::D) {
-            self.transform.position += right * 2.0 * dt;
+            self.transform.position += right * 4.0 * dt;
         }
 
         if input.keyboard.held(VirtualKeyCode::Space) {
-            self.transform.position.y += 2.0 * dt;
+            self.transform.position.y += 4.0 * dt;
         }
 
         if input.keyboard.held(VirtualKeyCode::LShift) {
-            self.transform.position.y -= 2.0 * dt;
+            self.transform.position.y -= 4.0 * dt;
         }
 
         let (mx, my) = input.mouse.mouse_diff();
-        self.transform.yaw += mx * 0.4 * dt;
-        self.transform.pitch -= my * 0.4 * dt;
+        self.transform.yaw += mx * 0.005;
+        self.transform.pitch -= my * 0.005;
 
         // Keep the camera's angle from going too high/low.
         if self.transform.pitch < -SAFE_FRAC_PI_2 {

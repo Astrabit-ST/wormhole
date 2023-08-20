@@ -44,7 +44,7 @@ impl Object {
 
         let albedo =
             image::open("assets/textures/cube-diffuse.jpg").expect("failed to load albedo");
-        let albedo = render::Texture::from_image(render_state, &albedo);
+        let albedo = render::Texture::builder(&albedo).build(render_state);
         let textures = Textures::new(render_state, albedo);
 
         Self {
@@ -54,13 +54,7 @@ impl Object {
         }
     }
 
-    pub fn draw<'rpass>(
-        &'rpass self,
-        camera: &'rpass render::Camera,
-        render_pass: &mut wgpu::RenderPass<'rpass>,
-    ) {
-        Shader::bind(render_pass);
-        camera.bind(render_pass, 0);
+    pub fn draw<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>) {
         self.transform.bind(render_pass, 1);
         self.textures.bind(render_pass, 2);
         self.mesh.draw(render_pass);
