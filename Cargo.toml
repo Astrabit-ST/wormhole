@@ -21,6 +21,7 @@ wgpu_glyph = "0.20.0"
 # Shaders & math
 bytemuck = "1.13.1"
 glam = { version = "0.24.0", features = ["mint", "bytemuck"] }
+encase = { version = "0.6.1", features = ["glam"] }
 
 # Asset loading
 image = "0.24.7"

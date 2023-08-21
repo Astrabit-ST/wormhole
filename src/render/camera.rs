@@ -102,7 +102,7 @@ impl Camera {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("camera buffer"),
-                contents: bytemuck::cast_slice(&[view_matrix]),
+                contents: bytemuck::bytes_of(&view_matrix),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -176,7 +176,7 @@ impl Camera {
 
         render_state
             .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[view_matrix]));
+            .write_buffer(&self.buffer, 0, bytemuck::bytes_of(&view_matrix));
     }
 
     pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {

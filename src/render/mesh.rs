@@ -53,16 +53,20 @@ impl Mesh {
     /// The mesh must be loaded with `triangluate` and `single_index` set to true.
     pub fn from_tobj_mesh(render_state: &render::State, mesh: &tobj::Mesh) -> Self {
         // Create a list of vertices from the mesh.
+        let mut tex_coords = bytemuck::cast_slice(&mesh.texcoords).iter().copied();
+        let mut normals = bytemuck::cast_slice(&mesh.normals).iter().copied();
+
         let vertices = bytemuck::cast_slice(&mesh.positions)
             .iter()
             .copied()
-            .zip_longest(bytemuck::cast_slice(&mesh.texcoords).iter().copied())
-            .map(|either| {
-                let (position, tex_coords) = either.or_default();
+            .map(|position| {
+                let tex_coords = tex_coords.next().unwrap_or_default();
+                let normal = normals.next().unwrap_or_default();
 
                 render::Vertex {
                     position,
                     tex_coords,
+                    normal,
                 }
             })
             .collect_vec();

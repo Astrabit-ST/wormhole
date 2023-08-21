@@ -19,22 +19,39 @@ use once_cell::sync::OnceCell;
 use wgpu::util::DeviceExt;
 
 pub struct Transform {
-    position: glam::Vec3,
-    rotation: glam::Quat,
+    data: Data,
 
     bind_group: wgpu::BindGroup,
     buffer: wgpu::Buffer,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+#[derive(PartialEq)]
+struct Data {
+    position: glam::Vec3,
+    rotation: glam::Quat,
+}
+
+impl Data {
+    fn to_matrix(self) -> glam::Mat4 {
+        glam::Mat4::from_rotation_translation(self.rotation, self.position)
+    }
 }
 
 static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Transform {
     pub fn new(render_state: &render::State) -> Self {
+        let data = Data {
+            position: glam::Vec3::ZERO,
+            rotation: glam::Quat::from_axis_angle(glam::Vec3::X, 30_f32.to_radians()),
+        };
+
         let buffer = render_state
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("transform buffer"),
-                contents: bytemuck::bytes_of(&glam::Mat4::IDENTITY),
+                contents: bytemuck::bytes_of(&data.to_matrix()),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
@@ -50,8 +67,7 @@ impl Transform {
             });
 
         Self {
-            position: glam::Vec3::ZERO,
-            rotation: glam::Quat::IDENTITY,
+            data,
             bind_group,
             buffer,
         }
@@ -60,11 +76,11 @@ impl Transform {
     pub fn reupload(&self, render_state: &render::State) {
         // WGSL doesn't have a decent concept of a quaternion.
         // See https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
-        let matrix =
-            glam::Mat4::from_translation(self.position) * glam::Mat4::from_quat(self.rotation);
-        render_state
-            .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[matrix]));
+        render_state.queue.write_buffer(
+            &self.buffer,
+            0,
+            bytemuck::bytes_of(&self.data.to_matrix()),
+        );
     }
 
     pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {
