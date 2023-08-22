@@ -76,6 +76,7 @@ impl State {
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };
+
         surface.configure(&device, &surface_config);
 
         Self {
@@ -108,8 +109,10 @@ impl State {
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
-        self.surface_config.width = size.width;
-        self.surface_config.height = size.height;
-        self.reconfigure_surface();
+        if size.width > 0 && size.height > 0 {
+            self.surface_config.width = size.width;
+            self.surface_config.height = size.height;
+            self.reconfigure_surface();
+        }
     }
 }

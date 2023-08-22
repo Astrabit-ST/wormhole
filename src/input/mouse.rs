@@ -52,7 +52,7 @@ impl Mouse {
         self.scroll_diff = (0.0, 0.0);
 
         self.previous = self.current;
-        self.current = Default::default();
+        self.current.cursor = None;
     }
 
     pub fn process_window(&mut self, event: &WindowEvent<'_>) {
@@ -60,14 +60,10 @@ impl Mouse {
             WindowEvent::CursorMoved { position, .. } => {
                 self.current.cursor = Some((position.x as f32, position.y as f32));
             }
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                button,
-                ..
-            } => match button {
-                MouseButton::Left => self.current.left = true,
-                MouseButton::Right => self.current.right = true,
-                MouseButton::Middle => self.current.middle = true,
+            WindowEvent::MouseInput { state, button, .. } => match button {
+                MouseButton::Left => self.current.left = matches!(state, ElementState::Pressed),
+                MouseButton::Right => self.current.right = matches!(state, ElementState::Pressed),
+                MouseButton::Middle => self.current.middle = matches!(state, ElementState::Pressed),
                 MouseButton::Other(_) => {}
             },
             WindowEvent::MouseWheel { delta, .. } => match delta {
@@ -110,5 +106,32 @@ impl Mouse {
         let previous = self.previous.cursor.unwrap_or_default();
 
         (current.0 - previous.0, current.1 - previous.1)
+    }
+
+    pub fn pressed(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => self.current.left && !self.previous.left,
+            MouseButton::Right => self.current.right && !self.previous.right,
+            MouseButton::Middle => self.current.middle && !self.previous.middle,
+            MouseButton::Other(_) => false,
+        }
+    }
+
+    pub fn released(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => !self.current.left && self.previous.left,
+            MouseButton::Right => !self.current.right && self.previous.right,
+            MouseButton::Middle => !self.current.middle && self.previous.middle,
+            MouseButton::Other(_) => false,
+        }
+    }
+
+    pub fn held(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => self.current.left,
+            MouseButton::Right => self.current.right,
+            MouseButton::Middle => self.current.middle,
+            MouseButton::Other(_) => false,
+        }
     }
 }

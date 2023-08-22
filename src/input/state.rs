@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::input;
-use winit::event::Event;
+use winit::event::{Event, WindowEvent};
 
 pub struct State {
     pub keyboard: input::Keyboard,
@@ -24,10 +24,11 @@ pub struct State {
 
     close_requested: bool,
     new_size: Option<winit::dpi::PhysicalSize<u32>>,
+    window_id: winit::window::WindowId,
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub fn new(window: &winit::window::Window) -> Self {
         let keyboard = input::Keyboard::new();
         let mouse = input::Mouse::new();
         let controller = input::Controller::new();
@@ -39,6 +40,7 @@ impl State {
 
             close_requested: false,
             new_size: None,
+            window_id: window.id(),
         }
     }
 
@@ -53,9 +55,18 @@ impl State {
     pub fn process<T>(&mut self, event: &winit::event::Event<'_, T>) -> bool {
         match event {
             Event::NewEvents(_) => self.start_frame(),
-            Event::WindowEvent { event, .. } => {
-                self.keyboard.process(event);
-                self.mouse.process_window(event);
+            Event::WindowEvent { event, window_id } if *window_id == self.window_id => {
+                match event {
+                    WindowEvent::Resized(size) => self.new_size = Some(*size),
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        self.new_size = Some(**new_inner_size)
+                    }
+                    WindowEvent::CloseRequested => self.close_requested = true,
+                    event => {
+                        self.keyboard.process(event);
+                        self.mouse.process_window(event);
+                    }
+                }
             }
             Event::DeviceEvent { event, .. } => {
                 self.mouse.process_device(event);

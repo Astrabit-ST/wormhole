@@ -12,6 +12,7 @@ fn main() {
         .build(&event_loop)
         .expect("failed to create window");
 
+    #[cfg(feature = "capture_mouse")]
     if let Err(e) = window
         .set_cursor_grab(winit::window::CursorGrabMode::Confined)
         .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Locked))
@@ -26,11 +27,12 @@ fn main() {
     render_state.initialize_bind_group_layouts();
     render_state.initialize_shaders();
 
-    let mut input_state = wormhole::input::State::new();
+    let mut input_state = wormhole::input::State::new(&window);
 
     let mut scene = wormhole::scene::Scene::new(&render_state);
 
     window.set_visible(true);
+    #[cfg(feature = "capture_mouse")]
     window.set_cursor_visible(false);
 
     event_loop.run(move |event, _, control_flow| {

@@ -156,9 +156,22 @@ impl Camera {
             self.transform.position.y -= 4.0 * dt;
         }
 
-        let (mx, my) = input.mouse.mouse_diff();
-        self.transform.yaw += mx * 0.005;
-        self.transform.pitch -= my * 0.005;
+        #[cfg(not(feature = "capture_mouse"))]
+        if input.mouse.held(winit::event::MouseButton::Left) {
+            let (mx, my) = input.mouse.mouse_diff();
+            self.transform.yaw += mx * 0.005;
+            self.transform.pitch -= my * 0.005;
+        }
+        #[cfg(feature = "capture_mouse")]
+        {
+            let (mx, my) = input.mouse.mouse_diff();
+            self.transform.yaw += mx * 0.005;
+            self.transform.pitch -= my * 0.005;
+        }
+
+        if let Some(size) = input.new_window_size() {
+            self.projection.aspect = size.width as f32 / size.height as f32;
+        }
 
         // Keep the camera's angle from going too high/low.
         if self.transform.pitch < -SAFE_FRAC_PI_2 {
