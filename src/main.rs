@@ -37,7 +37,7 @@ fn main() {
 
     event_loop.run(move |event, _, control_flow| {
         // Process the event. Once the last event is processed, input.process will return true and we can execute our logic.
-        if input_state.process(&event) {
+        if input_state.process(&event, &window) {
             if let Some(size) = input_state.new_window_size() {
                 render_state.resize(size);
             }

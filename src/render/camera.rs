@@ -156,17 +156,24 @@ impl Camera {
             self.transform.position.y -= 4.0 * dt;
         }
 
+        let (mouse_x, mouse_y) = input.mouse.mouse_diff();
+        let monitor_size = input.monitor_resolution();
+
+        // Normalize based on monitor size.
+        // This keeps mouse sensitivity consistent based on different resolutions.
+        // (I hope)
+        let norm_mouse_x = mouse_x / monitor_size.width as f32;
+        let norm_mouse_y = mouse_y / monitor_size.height as f32;
+
         #[cfg(not(feature = "capture_mouse"))]
         if input.mouse.held(winit::event::MouseButton::Left) {
-            let (mx, my) = input.mouse.mouse_diff();
-            self.transform.yaw += mx * 0.005;
-            self.transform.pitch -= my * 0.005;
+            self.transform.yaw += norm_mouse_x * 3.;
+            self.transform.pitch -= norm_mouse_y * 3.;
         }
         #[cfg(feature = "capture_mouse")]
         {
-            let (mx, my) = input.mouse.mouse_diff();
-            self.transform.yaw += mx * 0.005;
-            self.transform.pitch -= my * 0.005;
+            self.transform.yaw += norm_mouse_x * 5.;
+            self.transform.pitch -= norm_mouse_y * 5.;
         }
 
         if let Some(size) = input.new_window_size() {

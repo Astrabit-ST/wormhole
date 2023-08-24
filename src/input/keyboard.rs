@@ -34,11 +34,14 @@ impl Keyboard {
     }
 
     pub fn start_frame(&mut self) {
+        // We swap the current and previous keypress buffers.
+        // Then, current clones the data from previous. This avoids an allocation as is like a memcpy!
         std::mem::swap(&mut self.current, &mut self.previous);
         self.current.clone_from(&self.previous);
     }
 
     pub fn process(&mut self, event: &WindowEvent<'_>) {
+        // Pattern matching my beloved
         if let WindowEvent::KeyboardInput {
             input:
                 KeyboardInput {
