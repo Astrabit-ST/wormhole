@@ -16,23 +16,15 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
 use once_cell::sync::OnceCell;
-use wgpu::util::DeviceExt;
-
-pub struct Transform {
-    data: Data,
-
-    bind_group: wgpu::BindGroup,
-    buffer: wgpu::Buffer,
-}
 
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
-struct Data {
+pub struct Transform {
     position: glam::Vec3,
     rotation: glam::Quat,
 }
 
-impl Data {
+impl Transform {
     fn to_matrix(self) -> glam::Mat4 {
         glam::Mat4::from_rotation_translation(self.rotation, self.position)
     }
@@ -41,50 +33,26 @@ impl Data {
 static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Transform {
-    pub fn new(render_state: &render::State) -> Self {
-        let data = Data {
+    pub fn new() -> Self {
+        Self {
             position: glam::Vec3::ZERO,
             rotation: glam::Quat::from_axis_angle(glam::Vec3::X, 30_f32.to_radians()),
-        };
-
-        let buffer = render_state
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("transform buffer"),
-                contents: bytemuck::bytes_of(&data.to_matrix()),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-
-        let bind_group = render_state
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("transform bind group layout"),
-                layout: Transform::bind_group_layout(),
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }],
-            });
-
-        Self {
-            data,
-            bind_group,
-            buffer,
         }
     }
+}
 
-    pub fn reupload(&self, render_state: &render::State) {
-        // WGSL doesn't have a decent concept of a quaternion.
-        // See https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
-        render_state.queue.write_buffer(
-            &self.buffer,
-            0,
-            bytemuck::bytes_of(&self.data.to_matrix()),
-        );
-    }
+impl encase::ShaderType for Transform {
+    type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> =
+        <glam::Mat4 as encase::ShaderType>::METADATA;
+}
 
-    pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {
-        render_pass.set_bind_group(index, &self.bind_group, &[]);
+impl encase::internal::WriteInto for Transform {
+    fn write_into<B>(&self, writer: &mut encase::internal::Writer<B>)
+    where
+        B: encase::internal::BufferMut,
+    {
+        self.to_matrix().write_into(writer)
     }
 }
 
@@ -94,12 +62,12 @@ impl Transform {
             render_state
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("camera bind group layout"),
+                    label: Some("transform bind group layout"),
                     entries: &[wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::VERTEX,
                         ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: None,
                         },
@@ -108,10 +76,12 @@ impl Transform {
                 });
         LAYOUT
             .set(layout)
-            .expect("camera bind group layout already initialized");
+            .expect("transform bind group layout already initialized");
     }
 
     pub fn bind_group_layout() -> &'static wgpu::BindGroupLayout {
-        LAYOUT.get().expect("layout uninitialized")
+        LAYOUT
+            .get()
+            .expect("transform bind group layout uninitialized")
     }
 }

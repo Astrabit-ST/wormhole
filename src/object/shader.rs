@@ -35,7 +35,10 @@ impl Shader {
                     render::Transform::bind_group_layout(),
                     super::Textures::bind_group_layout(),
                 ],
-                push_constant_ranges: &[],
+                push_constant_ranges: &[wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStages::VERTEX,
+                    range: 0..4,
+                }],
             });
 
         let shader = render_state

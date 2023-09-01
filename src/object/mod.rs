@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
+use crate::scene;
 
 mod shader;
 pub use shader::Shader;
@@ -27,9 +28,16 @@ pub struct Object {
     pub textures: textures::Textures,
 }
 
+pub struct Prepared<'obj> {
+    mesh: &'obj render::Mesh,
+    textures: &'obj textures::Textures,
+
+    transform_index: u32,
+}
+
 impl Object {
     pub fn new(render_state: &render::State) -> Self {
-        let transform = render::Transform::new(render_state);
+        let transform = render::Transform::new();
 
         let (models, _) = tobj::load_obj(
             "assets/meshes/cube.obj",
@@ -54,8 +62,36 @@ impl Object {
         }
     }
 
-    pub fn draw<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>) {
-        self.transform.bind(render_pass, 1);
+    pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
+        let transform_index = resources
+            .transform
+            .push(&self.transform)
+            .expect("failed to write transform data") as u32;
+        Prepared {
+            mesh: &self.mesh,
+            textures: &self.textures,
+            transform_index,
+        }
+    }
+}
+
+impl<'obj> Prepared<'obj> {
+    pub fn draw(
+        self,
+        resources: &scene::RenderResources<'obj>,
+        render_pass: &mut wgpu::RenderPass<'obj>,
+    ) {
+        Shader::bind(render_pass);
+
+        resources.camera.bind(render_pass, 0);
+        render_pass.set_bind_group(1, resources.transform, &[]);
+
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX,
+            0,
+            bytemuck::bytes_of(&self.transform_index),
+        );
+
         self.textures.bind(render_pass, 2);
         self.mesh.draw(render_pass);
     }

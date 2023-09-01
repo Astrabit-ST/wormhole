@@ -21,13 +21,20 @@ struct Transform {
     obj_proj: mat4x4<f32>
 }
 @group(1) @binding(0)
-var<uniform> transform: Transform;
+var<storage> transforms: array<Transform>;
+
+struct Constants {
+    transform_index: u32
+}
+var<push_constant> constants: Constants;
 
 @vertex
 fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
+
+    let transform = transforms[constants.transform_index];
 
     out.tex_coords = model.tex_coords;
     out.clip_position = camera.view_proj * transform.obj_proj * vec4<f32>(model.position, 1.0);

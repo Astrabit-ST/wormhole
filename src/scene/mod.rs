@@ -19,13 +19,25 @@ use crate::render;
 
 use crate::object;
 
+use itertools::Itertools;
 use std::time::Instant;
 
 pub struct Scene {
     camera: render::Camera,
     objects: Vec<object::Object>,
 
+    transform_buffer: render::Buffer<render::Transform>,
+
     last_update: Instant,
+}
+
+pub struct PrepareResources<'buf> {
+    pub transform: render::BufferWriter<'buf, render::Transform>,
+}
+
+pub struct RenderResources<'res> {
+    pub transform: &'res wgpu::BindGroup,
+    pub camera: &'res render::Camera,
 }
 
 impl Scene {
@@ -33,11 +45,20 @@ impl Scene {
         let camera = render::Camera::new(render_state);
         let objects = vec![object::Object::new(render_state)];
 
+        let transform_buffer = render::Buffer::new(
+            render_state,
+            wgpu::BufferUsages::empty(),
+            render::Transform::bind_group_layout(),
+        );
+
         let last_update = Instant::now();
 
         Self {
             camera,
             objects,
+
+            transform_buffer,
+
             last_update,
         }
     }
@@ -68,6 +89,22 @@ impl Scene {
                     label: Some("render pass encoder"),
                 });
 
+        // Prepare everything for rendering
+        encoder.push_debug_group("Scene prep");
+
+        let mut resources = PrepareResources {
+            transform: self.transform_buffer.start_write(),
+        };
+
+        let prepared_objects = self
+            .objects
+            .iter()
+            .map(|o| o.prepare(&mut resources))
+            .collect_vec();
+
+        encoder.pop_debug_group();
+
+        // Do rendering
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -85,10 +122,13 @@ impl Scene {
             depth_stencil_attachment: None,
         });
 
-        object::Shader::bind(&mut render_pass);
-        self.camera.bind(&mut render_pass, 0);
-        for object in self.objects.iter() {
-            object.draw(&mut render_pass);
+        let render_resources = RenderResources {
+            transform: resources.transform.finish(render_state),
+            camera: &self.camera,
+        };
+
+        for prepared in prepared_objects {
+            prepared.draw(&render_resources, &mut render_pass);
         }
 
         drop(render_pass);

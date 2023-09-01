@@ -52,8 +52,11 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("wgpu device"),
-                    limits: wgpu::Limits::default(),
-                    features: wgpu::Features::default(),
+                    limits: wgpu::Limits {
+                        max_push_constant_size: 4,
+                        ..Default::default()
+                    },
+                    features: wgpu::Features::default() | wgpu::Features::PUSH_CONSTANTS,
                 },
                 None,
             )

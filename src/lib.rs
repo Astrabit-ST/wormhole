@@ -35,6 +35,10 @@ pub mod render {
     mod state;
     pub use state::State;
 
+    mod buffer;
+    pub use buffer::Buffer;
+    pub use buffer::Writer as BufferWriter;
+
     mod camera;
     pub use camera::Camera;
 
