@@ -83,7 +83,7 @@ impl<'obj> Prepared<'obj> {
     ) {
         Shader::bind(render_pass);
 
-        resources.camera.bind(render_pass, 0);
+        render_pass.set_bind_group(0, resources.camera, &[]);
         render_pass.set_bind_group(1, resources.transform, &[]);
 
         render_pass.set_push_constants(

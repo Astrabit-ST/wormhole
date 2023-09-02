@@ -26,18 +26,24 @@ pub struct Scene {
     camera: render::Camera,
     objects: Vec<object::Object>,
 
-    transform_buffer: render::Buffer<render::Transform>,
+    buffers: Buffers,
 
     last_update: Instant,
 }
 
+pub struct Buffers {
+    pub transform: render::dynamic::Buffer<render::Transform>,
+    pub camera: render::single::Buffer<render::Camera>,
+}
+
 pub struct PrepareResources<'buf> {
-    pub transform: render::BufferWriter<'buf, render::Transform>,
+    pub transform: render::dynamic::Writer<'buf, render::Transform>,
+    pub camera: render::single::Writer<'buf, render::Camera>,
 }
 
 pub struct RenderResources<'res> {
     pub transform: &'res wgpu::BindGroup,
-    pub camera: &'res render::Camera,
+    pub camera: &'res wgpu::BindGroup,
 }
 
 impl Scene {
@@ -45,11 +51,22 @@ impl Scene {
         let camera = render::Camera::new(render_state);
         let objects = vec![object::Object::new(render_state)];
 
-        let transform_buffer = render::Buffer::new(
+        let transform_buffer = render::dynamic::Buffer::new(
             render_state,
             wgpu::BufferUsages::empty(),
             render::Transform::bind_group_layout(),
         );
+
+        let camera_buffer = render::single::Buffer::new(
+            render_state,
+            wgpu::BufferUsages::empty(),
+            render::Camera::bind_group_layout(),
+        );
+
+        let buffers = Buffers {
+            transform: transform_buffer,
+            camera: camera_buffer,
+        };
 
         let last_update = Instant::now();
 
@@ -57,17 +74,17 @@ impl Scene {
             camera,
             objects,
 
-            transform_buffer,
+            buffers,
 
             last_update,
         }
     }
 
-    pub fn update(&mut self, render_state: &render::State, input: &input::State) {
+    pub fn update(&mut self, input: &input::State) {
         let before = std::mem::replace(&mut self.last_update, Instant::now());
         let dt = (self.last_update - before).as_secs_f32();
 
-        self.camera.update(render_state, input, dt);
+        self.camera.update(input, dt);
     }
 
     pub fn render(&mut self, render_state: &render::State) {
@@ -93,7 +110,8 @@ impl Scene {
         encoder.push_debug_group("Scene prep");
 
         let mut resources = PrepareResources {
-            transform: self.transform_buffer.start_write(),
+            transform: self.buffers.transform.start_write(),
+            camera: self.buffers.camera.start_write(),
         };
 
         let prepared_objects = self
@@ -101,6 +119,11 @@ impl Scene {
             .iter()
             .map(|o| o.prepare(&mut resources))
             .collect_vec();
+
+        resources
+            .camera
+            .write(&self.camera)
+            .expect("failed to write camera data");
 
         encoder.pop_debug_group();
 
@@ -124,7 +147,7 @@ impl Scene {
 
         let render_resources = RenderResources {
             transform: resources.transform.finish(render_state),
-            camera: &self.camera,
+            camera: resources.camera.finish(render_state),
         };
 
         for prepared in prepared_objects {

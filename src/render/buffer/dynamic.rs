@@ -30,7 +30,10 @@ pub struct Writer<'buf, T> {
     internal: &'buf mut Buffer<T>,
 }
 
-impl<T> Buffer<T> {
+impl<T> Buffer<T>
+where
+    T: encase::ShaderSize,
+{
     pub fn new(
         render_state: &render::State,
         usage: wgpu::BufferUsages,
@@ -38,7 +41,7 @@ impl<T> Buffer<T> {
     ) -> Self {
         let gpu_buffer = render_state.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("wormhole dynamic buffer"),
-            size: std::mem::size_of::<T>() as wgpu::BufferAddress * 256,
+            size: T::SHADER_SIZE.get() as wgpu::BufferAddress * 256,
             usage: wgpu::BufferUsages::COPY_SRC
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::STORAGE
@@ -77,12 +80,12 @@ impl<T> Buffer<T> {
 
 impl<'buf, T> Writer<'buf, T>
 where
-    T: encase::ShaderType + encase::internal::WriteInto,
+    T: encase::ShaderType + encase::ShaderSize + encase::internal::WriteInto,
 {
-    pub fn push(&mut self, value: &T) -> Result<usize, encase::internal::Error> {
+    pub fn push(&mut self, value: &T) -> Result<u64, encase::internal::Error> {
         self.cpu_buffer
             .write(value)
-            .map(|offset| offset as usize / std::mem::size_of::<T>())
+            .map(|offset| offset / T::SHADER_SIZE.get())
     }
 
     pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {

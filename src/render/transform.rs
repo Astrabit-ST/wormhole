@@ -41,6 +41,10 @@ impl Transform {
     }
 }
 
+impl encase::ShaderSize for Transform {
+    const SHADER_SIZE: std::num::NonZeroU64 = glam::Mat4::SHADER_SIZE;
+}
+
 impl encase::ShaderType for Transform {
     type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
     const METADATA: encase::private::Metadata<Self::ExtraMetadata> =

@@ -17,16 +17,12 @@
 use crate::{input, render};
 
 use once_cell::sync::OnceCell;
-use wgpu::util::DeviceExt;
 use winit::event::VirtualKeyCode;
 
 #[derive(Debug)]
 pub struct Camera {
     projection: Projection,
     transform: Transform,
-
-    buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -95,38 +91,13 @@ impl Camera {
             zfar: 100.0,
         };
 
-        let view_matrix =
-            transform.build_translation_matrix() * projection.build_projection_matrix();
-
-        let buffer = render_state
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("camera buffer"),
-                contents: bytemuck::bytes_of(&view_matrix),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let bind_group = render_state
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("camera bind group"),
-                layout: Camera::bind_group_layout(),
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }],
-            });
-
         Camera {
             projection,
             transform,
-
-            buffer,
-            bind_group,
         }
     }
 
-    pub fn update(&mut self, render_state: &render::State, input: &input::State, dt: f32) {
+    pub fn update(&mut self, input: &input::State, dt: f32) {
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = self.transform.yaw.sin_cos();
         let forward = glam::Vec3::new(yaw_cos, 0.0, yaw_sin).normalize();
@@ -186,21 +157,26 @@ impl Camera {
         } else if self.transform.pitch > SAFE_FRAC_PI_2 {
             self.transform.pitch = SAFE_FRAC_PI_2;
         }
-
-        self.reupload(render_state);
     }
+}
 
-    pub fn reupload(&self, render_state: &render::State) {
-        let view_matrix =
-            self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
+impl encase::ShaderSize for Camera {
+    const SHADER_SIZE: std::num::NonZeroU64 = glam::Mat4::SHADER_SIZE;
+}
 
-        render_state
-            .queue
-            .write_buffer(&self.buffer, 0, bytemuck::bytes_of(&view_matrix));
-    }
+impl encase::ShaderType for Camera {
+    type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> =
+        <glam::Mat4 as encase::ShaderType>::METADATA;
+}
 
-    pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {
-        render_pass.set_bind_group(index, &self.bind_group, &[]);
+impl encase::internal::WriteInto for Camera {
+    fn write_into<B>(&self, writer: &mut encase::internal::Writer<B>)
+    where
+        B: encase::internal::BufferMut,
+    {
+        (self.projection.build_projection_matrix() * self.transform.build_translation_matrix())
+            .write_into(writer)
     }
 }
 
