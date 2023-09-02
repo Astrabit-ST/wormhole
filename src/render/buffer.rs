@@ -82,7 +82,7 @@ where
     pub fn push(&mut self, value: &T) -> Result<usize, encase::internal::Error> {
         self.cpu_buffer
             .write(value)
-            .map(|_| self.cpu_buffer.as_ref().len() - 1)
+            .map(|offset| offset as usize / std::mem::size_of::<T>())
     }
 
     pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {
