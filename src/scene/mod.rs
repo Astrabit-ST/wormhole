@@ -27,6 +27,7 @@ pub struct Scene {
     objects: Vec<object::Object>,
 
     buffers: Buffers,
+    depth_texture: render::DepthTexture,
 
     last_update: Instant,
 }
@@ -49,7 +50,9 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State) -> Self {
         let camera = render::Camera::new(render_state);
-        let objects = vec![object::Object::new(render_state)];
+        let objects = (0..100)
+            .map(|i| object::Object::new(render_state, i))
+            .collect_vec();
 
         let transform_buffer = render::dynamic::Buffer::new(
             render_state,
@@ -68,6 +71,8 @@ impl Scene {
             camera: camera_buffer,
         };
 
+        let depth_texture = render::DepthTexture::builder().build(render_state);
+
         let last_update = Instant::now();
 
         Self {
@@ -75,16 +80,25 @@ impl Scene {
             objects,
 
             buffers,
+            depth_texture,
 
             last_update,
         }
     }
 
-    pub fn update(&mut self, input: &input::State) {
+    pub fn update(&mut self, render_state: &render::State, input_state: &input::State) {
         let before = std::mem::replace(&mut self.last_update, Instant::now());
         let dt = (self.last_update - before).as_secs_f32();
 
-        self.camera.update(input, dt);
+        if input_state.new_window_size().is_some() {
+            self.depth_texture.resize(render_state);
+        }
+
+        for object in self.objects.iter_mut() {
+            object.update(dt)
+        }
+
+        self.camera.update(input_state, dt);
     }
 
     pub fn render(&mut self, render_state: &render::State) {
@@ -142,7 +156,14 @@ impl Scene {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
 
         let render_resources = RenderResources {

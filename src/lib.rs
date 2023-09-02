@@ -50,6 +50,9 @@ pub mod render {
     mod texture;
     pub use texture::Texture;
 
+    mod depth_texture;
+    pub use depth_texture::DepthTexture;
+
     mod vertex;
     pub use vertex::Vertex;
 

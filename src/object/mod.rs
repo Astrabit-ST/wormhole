@@ -36,8 +36,12 @@ pub struct Prepared<'obj> {
 }
 
 impl Object {
-    pub fn new(render_state: &render::State) -> Self {
-        let transform = render::Transform::new();
+    pub fn new(render_state: &render::State, i: usize) -> Self {
+        let transform = render::Transform::from_position(glam::Vec3::new(
+            (i % 10) as f32 * 4.,
+            0.,
+            (i / 10) as f32 * 4.,
+        ));
 
         let (models, _) = tobj::load_obj(
             "assets/meshes/cube.obj",
@@ -60,6 +64,11 @@ impl Object {
             mesh,
             textures,
         }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.transform.rotation *=
+            glam::Quat::from_euler(glam::EulerRot::XYZ, 180_f32.to_radians() * dt, 0., 0.);
     }
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {

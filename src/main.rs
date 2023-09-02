@@ -53,7 +53,7 @@ fn main() {
                 control_flow.set_exit();
             }
 
-            scene.update(&input_state);
+            scene.update(&render_state, &input_state);
 
             scene.render(&render_state);
         }

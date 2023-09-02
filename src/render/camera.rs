@@ -36,7 +36,6 @@ struct Transform {
 
 impl Transform {
     fn build_translation_matrix(&self) -> glam::Mat4 {
-        // glam::Mat4::look_at_rh(glam::vec3(0.0, 1.0, 2.0), glam::Vec3::ZERO, glam::Vec3::Y)
         let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
         let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
 
@@ -57,19 +56,11 @@ struct Projection {
     zfar: f32,
 }
 
-pub const OPENGL_TO_WGPU_MATRIX: glam::Mat4 = glam::Mat4::from_cols_array_2d(&[
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 0.5, 0.5],
-    [0.0, 0.0, 0.0, 1.0],
-]);
-
 const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 
 impl Projection {
     fn build_projection_matrix(self) -> glam::Mat4 {
-        OPENGL_TO_WGPU_MATRIX
-            * glam::Mat4::perspective_rh_gl(self.fovy, self.aspect, self.znear, self.zfar)
+        glam::Mat4::perspective_rh(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
@@ -80,8 +71,8 @@ impl Camera {
         let transform = Transform {
             position: glam::Vec3::new(0.0, 0.0, 0.0),
 
-            yaw: -90_f32.to_radians(),
-            pitch: -20_f32.to_radians(),
+            yaw: 0.0,
+            pitch: 0.0,
         };
         let projection = Projection {
             aspect: render_state.surface_config.width as f32
@@ -128,23 +119,19 @@ impl Camera {
         }
 
         let (mouse_x, mouse_y) = input.mouse.mouse_diff();
-        let monitor_size = input.monitor_resolution();
 
-        // Normalize based on monitor size.
-        // This keeps mouse sensitivity consistent based on different resolutions.
-        // (I hope)
-        let norm_mouse_x = mouse_x / monitor_size.width as f32;
-        let norm_mouse_y = mouse_y / monitor_size.height as f32;
+        let norm_mouse_x = mouse_x * 0.004;
+        let norm_mouse_y = mouse_y * 0.004;
 
         #[cfg(not(feature = "capture_mouse"))]
         if input.mouse.held(winit::event::MouseButton::Left) {
-            self.transform.yaw += norm_mouse_x * 3.;
-            self.transform.pitch -= norm_mouse_y * 3.;
+            self.transform.yaw += norm_mouse_x;
+            self.transform.pitch -= norm_mouse_y;
         }
         #[cfg(feature = "capture_mouse")]
         {
-            self.transform.yaw += norm_mouse_x * 5.;
-            self.transform.pitch -= norm_mouse_y * 5.;
+            self.transform.yaw += norm_mouse_x;
+            self.transform.pitch -= norm_mouse_y;
         }
 
         if let Some(size) = input.new_window_size() {

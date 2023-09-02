@@ -20,8 +20,8 @@ use once_cell::sync::OnceCell;
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
 pub struct Transform {
-    position: glam::Vec3,
-    rotation: glam::Quat,
+    pub position: glam::Vec3,
+    pub rotation: glam::Quat,
 }
 
 impl Transform {
@@ -36,8 +36,25 @@ impl Transform {
     pub fn new() -> Self {
         Self {
             position: glam::Vec3::ZERO,
-            rotation: glam::Quat::from_axis_angle(glam::Vec3::X, 30_f32.to_radians()),
+            rotation: glam::Quat::IDENTITY,
         }
+    }
+
+    pub fn from_position(position: glam::Vec3) -> Self {
+        Self {
+            position,
+            rotation: glam::Quat::IDENTITY,
+        }
+    }
+
+    pub fn from_position_rotation(position: glam::Vec3, rotation: glam::Quat) -> Self {
+        Self { position, rotation }
+    }
+}
+
+impl Transform {
+    pub fn translate(&mut self, vec: glam::Vec3) {
+        self.position += vec
     }
 }
 
