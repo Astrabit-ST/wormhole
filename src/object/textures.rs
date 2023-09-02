@@ -19,15 +19,13 @@ use once_cell::sync::OnceCell;
 
 #[allow(dead_code)]
 pub struct Textures {
-    albedo: render::Texture,
-
     bind_group: wgpu::BindGroup,
 }
 
 static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Textures {
-    pub fn new(render_state: &render::State, albedo: render::Texture) -> Self {
+    pub fn new(render_state: &render::State, albedo: &render::Texture) -> Self {
         let bind_group = render_state
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -45,7 +43,7 @@ impl Textures {
                 ],
             });
 
-        Self { albedo, bind_group }
+        Self { bind_group }
     }
 
     pub fn bind<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>, index: u32) {

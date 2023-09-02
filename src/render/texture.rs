@@ -23,46 +23,70 @@ pub struct Texture {
     pub sampler: wgpu::Sampler,
 }
 
-impl Texture {
-    pub fn builder(image: &image::DynamicImage) -> TextureBuilder<'_> {
-        TextureBuilder::new(image)
-    }
-}
-
-pub struct TextureBuilder<'img> {
-    image: &'img image::DynamicImage,
+pub struct TextureFormat {
     format: wgpu::TextureFormat,
     filtering: wgpu::FilterMode,
     usage: wgpu::TextureUsages,
 }
 
-impl<'img> TextureBuilder<'img> {
-    pub fn new(image: &'img image::DynamicImage) -> Self {
+impl TextureFormat {
+    pub const GENERIC: Self = TextureFormat {
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        filtering: wgpu::FilterMode::Nearest,
+        usage: wgpu::TextureUsages::COPY_SRC
+            .union(wgpu::TextureUsages::COPY_DST)
+            .union(wgpu::TextureUsages::TEXTURE_BINDING),
+    };
+
+    pub const NORMAL: Self = TextureFormat {
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        filtering: wgpu::FilterMode::Nearest,
+        usage: wgpu::TextureUsages::COPY_SRC
+            .union(wgpu::TextureUsages::COPY_DST)
+            .union(wgpu::TextureUsages::TEXTURE_BINDING),
+    };
+}
+
+impl Texture {
+    pub fn new(render_state: &render::State, size: wgpu::Extent3d, format: TextureFormat) -> Self {
+        let texture = render_state
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size,
+                dimension: wgpu::TextureDimension::D2,
+                mip_level_count: 1,
+                sample_count: 1,
+                format: format.format,
+                usage: format.usage,
+                view_formats: &[],
+            });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = render_state
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: format.filtering,
+                min_filter: format.filtering,
+                mipmap_filter: format.filtering,
+                ..Default::default()
+            });
+
         Self {
-            image,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            filtering: wgpu::FilterMode::Nearest,
-            usage: wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::TEXTURE_BINDING,
+            texture,
+            view,
+            sampler,
         }
     }
 
-    pub fn format(self, format: wgpu::TextureFormat) -> Self {
-        Self { format, ..self }
-    }
-
-    pub fn filtering(self, filtering: wgpu::FilterMode) -> Self {
-        Self { filtering, ..self }
-    }
-
-    pub fn usage(self, usage: wgpu::TextureUsages) -> Self {
-        Self { usage, ..self }
-    }
-
-    pub fn build(self, render_state: &render::State) -> Texture {
-        let image = self.image.to_rgba8();
-
+    pub fn from_image(
+        render_state: &render::State,
+        image: &image::DynamicImage,
+        format: TextureFormat,
+    ) -> Self {
+        let image = image.to_rgba8();
         let texture = render_state.device.create_texture_with_data(
             &render_state.queue,
             &wgpu::TextureDescriptor {
@@ -75,8 +99,8 @@ impl<'img> TextureBuilder<'img> {
                 dimension: wgpu::TextureDimension::D2,
                 mip_level_count: 1,
                 sample_count: 1,
-                format: self.format,
-                usage: self.usage,
+                format: format.format,
+                usage: format.usage,
                 view_formats: &[],
             },
             &image,
@@ -88,18 +112,16 @@ impl<'img> TextureBuilder<'img> {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: self.filtering,
-                min_filter: self.filtering,
-                mipmap_filter: self.filtering,
+                mag_filter: format.filtering,
+                min_filter: format.filtering,
+                mipmap_filter: format.filtering,
                 ..Default::default()
             });
 
-        Texture {
+        Self {
             texture,
             view,
             sampler,
         }
     }
 }
-
-impl Texture {}

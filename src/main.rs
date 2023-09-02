@@ -29,7 +29,9 @@ fn main() {
 
     let mut input_state = wormhole::input::State::new(&window);
 
-    let mut scene = wormhole::scene::Scene::new(&render_state);
+    let mut assets = wormhole::assets::Loader::new();
+
+    let mut scene = wormhole::scene::Scene::new(&render_state, &mut assets);
 
     window.set_visible(true);
     #[cfg(feature = "capture_mouse")]

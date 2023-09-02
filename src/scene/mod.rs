@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::assets;
 use crate::input;
 use crate::render;
 
@@ -48,10 +49,10 @@ pub struct RenderResources<'res> {
 }
 
 impl Scene {
-    pub fn new(render_state: &render::State) -> Self {
+    pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
         let objects = (0..100)
-            .map(|i| object::Object::new(render_state, i))
+            .map(|i| object::Object::new(render_state, assets, i))
             .collect_vec();
 
         let transform_buffer = render::dynamic::Buffer::new(

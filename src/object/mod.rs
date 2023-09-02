@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::assets;
 use crate::render;
 use crate::scene;
 
@@ -36,7 +37,7 @@ pub struct Prepared<'obj> {
 }
 
 impl Object {
-    pub fn new(render_state: &render::State, i: usize) -> Self {
+    pub fn new(render_state: &render::State, assets: &mut assets::Loader, i: usize) -> Self {
         let transform = render::Transform::from_position(glam::Vec3::new(
             (i % 10) as f32 * 4.,
             0.,
@@ -54,9 +55,10 @@ impl Object {
         .expect("failed to load models");
         let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
 
-        let albedo =
-            image::open("assets/textures/cube-diffuse.jpg").expect("failed to load albedo");
-        let albedo = render::Texture::builder(&albedo).build(render_state);
+        let (_, albedo) = assets
+            .textures
+            .load(render_state, "assets/textures/cube-diffuse.jpg");
+
         let textures = Textures::new(render_state, albedo);
 
         Self {

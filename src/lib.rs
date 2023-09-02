@@ -17,6 +17,15 @@
 #![warn(rust_2018_idioms)]
 #![allow(clippy::new_without_default)]
 
+pub mod assets {
+    mod loader;
+    pub use loader::Loader;
+
+    mod textures;
+    pub use textures::Id as TextureId;
+    pub use textures::Textures;
+}
+
 pub mod input {
     mod keyboard;
     pub use keyboard::Keyboard;
@@ -47,10 +56,11 @@ pub mod render {
     mod transform;
     pub use transform::Transform;
 
-    mod texture;
+    pub mod texture;
     pub use texture::Texture;
+    pub use texture::TextureFormat;
 
-    mod depth_texture;
+    pub mod depth_texture;
     pub use depth_texture::DepthTexture;
 
     mod vertex;
