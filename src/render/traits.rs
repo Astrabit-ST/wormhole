@@ -27,6 +27,14 @@ pub trait Bindable {
     }
 }
 
+pub trait DynamicBufferWriteable:
+    encase::ShaderSize + encase::ShaderType + encase::internal::WriteInto
+{
+    const ALIGN: u64 = 32;
+
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout;
+}
+
 pub trait Shadeable {
     fn create_render_pipeline(
         render_state: &render::state::BindGroupsCreated,

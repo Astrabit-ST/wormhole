@@ -51,7 +51,7 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        let objects = (0..100)
+        let objects = (0..8_000)
             .map(|i| object::Object::new(render_state, assets, i))
             .collect_vec();
 
