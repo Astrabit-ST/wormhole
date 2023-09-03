@@ -44,15 +44,7 @@ impl Object {
             (i / 10) as f32 * 4.,
         ));
 
-        let (models, _) = tobj::load_obj(
-            "assets/meshes/cube.obj",
-            &tobj::LoadOptions {
-                single_index: true,
-                triangulate: true,
-                ..Default::default()
-            },
-        )
-        .expect("failed to load models");
+        let (_, models) = assets.models.load("assets/meshes/cube.obj");
         let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
 
         let (_, albedo) = assets

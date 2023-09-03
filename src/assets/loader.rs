@@ -18,12 +18,14 @@ use crate::assets;
 
 pub struct Loader {
     pub textures: assets::Textures,
+    pub models: assets::Models,
 }
 
 impl Loader {
     pub fn new() -> Self {
         let textures = assets::textures::Textures::new();
+        let models = assets::Models::new();
 
-        Self { textures }
+        Self { textures, models }
     }
 }

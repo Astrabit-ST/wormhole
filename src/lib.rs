@@ -14,7 +14,13 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-#![warn(rust_2018_idioms)]
+#![warn(
+    rust_2018_idioms,
+    clippy::suspicious,
+    clippy::complexity,
+    clippy::perf,
+    clippy::style
+)]
 #![allow(clippy::new_without_default)]
 
 pub mod assets {
@@ -24,6 +30,10 @@ pub mod assets {
     mod textures;
     pub use textures::Id as TextureId;
     pub use textures::Textures;
+
+    mod models;
+    pub use models::Id as ModelId;
+    pub use models::Models;
 }
 
 pub mod input {
