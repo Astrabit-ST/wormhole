@@ -23,9 +23,10 @@ fn main() {
     // SAFETY:
     // This function is unsafe because the window must be valid as long as the surface is valid.
     // Because the surface is created after the window, the drop order ensures that the surface is dropped after the window.
-    let mut render_state = unsafe { pollster::block_on(wormhole::render::State::new(&window)) };
-    render_state.initialize_bind_group_layouts();
-    render_state.initialize_shaders();
+    let mut render_state =
+        unsafe { pollster::block_on(wormhole::render::state::GpuCreated::new(&window)) }
+            .initialize_bind_group_layouts()
+            .initialize_render_pipelines();
 
     let mut input_state = wormhole::input::State::new(&window);
 

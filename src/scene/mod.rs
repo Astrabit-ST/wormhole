@@ -58,13 +58,13 @@ impl Scene {
         let transform_buffer = render::dynamic::Buffer::new(
             render_state,
             wgpu::BufferUsages::empty(),
-            render::Transform::bind_group_layout(),
+            &render_state.bind_groups.transform,
         );
 
         let camera_buffer = render::single::Buffer::new(
             render_state,
             wgpu::BufferUsages::empty(),
-            render::Camera::bind_group_layout(),
+            &render_state.bind_groups.camera,
         );
 
         let buffers = Buffers {
@@ -103,7 +103,7 @@ impl Scene {
     }
 
     pub fn render(&mut self, render_state: &render::State) {
-        let output = match render_state.surface.get_current_texture() {
+        let output = match render_state.wgpu.surface.get_current_texture() {
             Ok(texture) => texture,
             Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
                 render_state.reconfigure_surface();
@@ -116,6 +116,7 @@ impl Scene {
 
         let mut encoder =
             render_state
+                .wgpu
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("render pass encoder"),
@@ -173,12 +174,15 @@ impl Scene {
         };
 
         for prepared in prepared_objects {
-            prepared.draw(&render_resources, &mut render_pass);
+            prepared.draw(render_state, &render_resources, &mut render_pass);
         }
 
         drop(render_pass);
 
-        render_state.queue.submit(std::iter::once(encoder.finish()));
+        render_state
+            .wgpu
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         output.present();
     }

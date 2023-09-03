@@ -15,22 +15,20 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
-use once_cell::sync::OnceCell;
 
 #[allow(dead_code)]
 pub struct Textures {
     bind_group: wgpu::BindGroup,
 }
 
-static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
-
 impl Textures {
     pub fn new(render_state: &render::State, albedo: &render::Texture) -> Self {
         let bind_group = render_state
+            .wgpu
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("object textures bind group"),
-                layout: Textures::bind_group_layout(),
+                layout: &render_state.bind_groups.object_textures,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -51,38 +49,27 @@ impl Textures {
     }
 }
 
-impl Textures {
-    pub fn create_bind_group_layout(render_state: &render::State) {
-        let layout =
-            render_state
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("object texture bind group layout"),
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                multisampled: false,
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                });
-        LAYOUT
-            .set(layout)
-            .expect("object texture bind group layout");
-    }
-
-    pub fn bind_group_layout() -> &'static wgpu::BindGroupLayout {
-        LAYOUT.get().expect("layout uninitialized")
-    }
+impl render::traits::Bindable for Textures {
+    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("object texture bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        };
 }

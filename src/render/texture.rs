@@ -50,6 +50,7 @@ impl TextureFormat {
 impl Texture {
     pub fn new(render_state: &render::State, size: wgpu::Extent3d, format: TextureFormat) -> Self {
         let texture = render_state
+            .wgpu
             .device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
@@ -63,6 +64,7 @@ impl Texture {
             });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = render_state
+            .wgpu
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -87,8 +89,8 @@ impl Texture {
         format: TextureFormat,
     ) -> Self {
         let image = image.to_rgba8();
-        let texture = render_state.device.create_texture_with_data(
-            &render_state.queue,
+        let texture = render_state.wgpu.device.create_texture_with_data(
+            &render_state.wgpu.queue,
             &wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
@@ -107,6 +109,7 @@ impl Texture {
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = render_state
+            .wgpu
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,

@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
-use once_cell::sync::OnceCell;
 
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
@@ -29,8 +28,6 @@ impl Transform {
         glam::Mat4::from_rotation_translation(self.rotation, self.position)
     }
 }
-
-static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
 
 impl Transform {
     pub fn new() -> Self {
@@ -58,9 +55,7 @@ impl Transform {
     }
 }
 
-impl encase::ShaderSize for Transform {
-    const SHADER_SIZE: std::num::NonZeroU64 = glam::Mat4::SHADER_SIZE;
-}
+impl encase::ShaderSize for Transform {}
 
 impl encase::ShaderType for Transform {
     type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
@@ -77,32 +72,19 @@ impl encase::internal::WriteInto for Transform {
     }
 }
 
-impl Transform {
-    pub fn create_bind_group_layout(render_state: &render::State) {
-        let layout =
-            render_state
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("transform bind group layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
-        LAYOUT
-            .set(layout)
-            .expect("transform bind group layout already initialized");
-    }
-
-    pub fn bind_group_layout() -> &'static wgpu::BindGroupLayout {
-        LAYOUT
-            .get()
-            .expect("transform bind group layout uninitialized")
-    }
+impl render::traits::Bindable for Transform {
+    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("transform bind group layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        };
 }

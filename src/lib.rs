@@ -57,7 +57,7 @@ pub mod render {
     }
     pub use buffer::*;
 
-    mod state;
+    pub mod state;
     pub use state::State;
 
     mod camera;
@@ -78,6 +78,8 @@ pub mod render {
 
     mod mesh;
     pub use mesh::Mesh;
+
+    pub mod traits;
 }
 
 pub mod object;

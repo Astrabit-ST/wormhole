@@ -14,8 +14,25 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::object;
+use crate::render;
+
+pub struct GpuCreated {
+    pub wgpu: GpuState,
+}
+
+pub struct BindGroupsCreated {
+    pub wgpu: GpuState,
+    pub bind_groups: BindGroups,
+}
 
 pub struct State {
+    pub wgpu: GpuState,
+    pub bind_groups: BindGroups,
+    pub pipelines: RenderPipelines,
+}
+
+pub struct GpuState {
     pub instance: wgpu::Instance,
     pub surface: wgpu::Surface,
     pub surface_config: wgpu::SurfaceConfiguration,
@@ -24,7 +41,17 @@ pub struct State {
     pub queue: wgpu::Queue,
 }
 
-impl State {
+pub struct BindGroups {
+    pub camera: wgpu::BindGroupLayout,
+    pub transform: wgpu::BindGroupLayout,
+    pub object_textures: wgpu::BindGroupLayout,
+}
+
+pub struct RenderPipelines {
+    pub object: wgpu::RenderPipeline,
+}
+
+impl GpuCreated {
     /// # Safety
     ///
     /// See [`wgpu::Instance::create_surface`] for how to use this function safely.
@@ -82,39 +109,64 @@ impl State {
 
         surface.configure(&device, &surface_config);
 
-        Self {
+        let wgpu = GpuState {
             instance,
             surface,
             surface_config,
             adapter,
             device,
             queue,
-        }
-    }
-
-    /// Call this after initializing bind group layouts.
-    /// Failure to do so will result in a panic.
-    // FIXME: enforce this behaviour with generics?
-    pub fn initialize_shaders(&self) {
-        crate::object::Shader::create(self);
+        };
+        Self { wgpu }
     }
 
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
-    pub fn initialize_bind_group_layouts(&self) {
-        super::Camera::create_bind_group_layout(self);
-        super::Transform::create_bind_group_layout(self);
-        crate::object::Textures::create_bind_group_layout(self);
-    }
+    pub fn initialize_bind_group_layouts(self) -> BindGroupsCreated {
+        use render::traits::Bindable;
 
+        let camera = render::Camera::create_bind_group_layout(&self);
+        let transform = render::Transform::create_bind_group_layout(&self);
+        let object_textures = object::Textures::create_bind_group_layout(&self);
+
+        BindGroupsCreated {
+            wgpu: self.wgpu,
+            bind_groups: BindGroups {
+                camera,
+                transform,
+                object_textures,
+            },
+        }
+    }
+}
+
+impl BindGroupsCreated {
+    /// Initializes the bind group layouts of all uniforms passed to shaders.
+    /// Call this before initializing shaders, as they are dependent on these layouts.
+    pub fn initialize_render_pipelines(self) -> State {
+        use render::traits::Shadeable;
+
+        let object = object::Object::create_render_pipeline(&self);
+
+        State {
+            wgpu: self.wgpu,
+            bind_groups: self.bind_groups,
+            pipelines: RenderPipelines { object },
+        }
+    }
+}
+
+impl State {
     pub fn reconfigure_surface(&self) {
-        self.surface.configure(&self.device, &self.surface_config)
+        self.wgpu
+            .surface
+            .configure(&self.wgpu.device, &self.wgpu.surface_config)
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
-            self.surface_config.width = size.width;
-            self.surface_config.height = size.height;
+            self.wgpu.surface_config.width = size.width;
+            self.wgpu.surface_config.height = size.height;
             self.reconfigure_surface();
         }
     }

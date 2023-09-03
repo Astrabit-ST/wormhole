@@ -29,12 +29,13 @@ impl DepthTexture {
 
     pub fn resize(&mut self, render_state: &render::State) {
         let texture = render_state
+            .wgpu
             .device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width: render_state.surface_config.width,
-                    height: render_state.surface_config.height,
+                    width: render_state.wgpu.surface_config.width,
+                    height: render_state.wgpu.surface_config.height,
                     depth_or_array_layers: 1,
                 },
                 dimension: wgpu::TextureDimension::D2,
@@ -73,12 +74,13 @@ impl TextureBuilder {
 
     pub fn build(self, render_state: &render::State) -> DepthTexture {
         let texture = render_state
+            .wgpu
             .device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width: render_state.surface_config.width,
-                    height: render_state.surface_config.height,
+                    width: render_state.wgpu.surface_config.width,
+                    height: render_state.wgpu.surface_config.height,
                     depth_or_array_layers: 1,
                 },
                 dimension: wgpu::TextureDimension::D2,
@@ -90,6 +92,7 @@ impl TextureBuilder {
             });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = render_state
+            .wgpu
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,

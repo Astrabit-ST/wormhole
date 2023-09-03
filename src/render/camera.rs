@@ -16,7 +16,6 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::{input, render};
 
-use once_cell::sync::OnceCell;
 use winit::event::VirtualKeyCode;
 
 #[derive(Debug)]
@@ -64,8 +63,6 @@ impl Projection {
     }
 }
 
-static LAYOUT: OnceCell<wgpu::BindGroupLayout> = OnceCell::new();
-
 impl Camera {
     pub fn new(render_state: &render::State) -> Self {
         let transform = Transform {
@@ -75,8 +72,8 @@ impl Camera {
             pitch: 0.0,
         };
         let projection = Projection {
-            aspect: render_state.surface_config.width as f32
-                / render_state.surface_config.height as f32,
+            aspect: render_state.wgpu.surface_config.width as f32
+                / render_state.wgpu.surface_config.height as f32,
             fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,
@@ -147,9 +144,7 @@ impl Camera {
     }
 }
 
-impl encase::ShaderSize for Camera {
-    const SHADER_SIZE: std::num::NonZeroU64 = glam::Mat4::SHADER_SIZE;
-}
+impl encase::ShaderSize for Camera {}
 
 impl encase::ShaderType for Camera {
     type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
@@ -167,30 +162,19 @@ impl encase::internal::WriteInto for Camera {
     }
 }
 
-impl Camera {
-    pub fn create_bind_group_layout(render_state: &render::State) {
-        let layout =
-            render_state
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("camera bind group layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
-        LAYOUT
-            .set(layout)
-            .expect("camera bind group layout already initialized");
-    }
-
-    pub fn bind_group_layout() -> &'static wgpu::BindGroupLayout {
-        LAYOUT.get().expect("layout uninitialized")
-    }
+impl render::traits::Bindable for Camera {
+    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("camera bind group layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        };
 }

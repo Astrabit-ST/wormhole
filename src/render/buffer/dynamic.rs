@@ -20,7 +20,6 @@ use std::marker::PhantomData;
 pub struct Buffer<T> {
     gpu_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
-    bind_group_layout: &'static wgpu::BindGroupLayout,
 
     phantom: PhantomData<[T]>,
 }
@@ -37,18 +36,25 @@ where
     pub fn new(
         render_state: &render::State,
         usage: wgpu::BufferUsages,
-        bind_group_layout: &'static wgpu::BindGroupLayout,
+        bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
-        let gpu_buffer = render_state.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("wormhole dynamic buffer"),
-            size: T::SHADER_SIZE.get() as wgpu::BufferAddress * 256,
-            usage: wgpu::BufferUsages::COPY_SRC
-                | wgpu::BufferUsages::COPY_DST
-                | wgpu::BufferUsages::STORAGE
-                | usage,
-            mapped_at_creation: false,
-        });
+        let buffer_size =
+            encase::internal::AlignmentValue::new(256).round_up(T::SHADER_SIZE.get()) * 256;
+
+        let gpu_buffer = render_state
+            .wgpu
+            .device
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("wormhole dynamic buffer"),
+                size: buffer_size as wgpu::BufferAddress,
+                usage: wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::STORAGE
+                    | usage,
+                mapped_at_creation: false,
+            });
         let bind_group = render_state
+            .wgpu
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("wormhole dynamic buffer bind group"),
@@ -62,7 +68,6 @@ where
         Self {
             gpu_buffer,
             bind_group,
-            bind_group_layout,
 
             phantom: PhantomData,
         }
@@ -83,36 +88,43 @@ where
     T: encase::ShaderType + encase::ShaderSize + encase::internal::WriteInto,
 {
     pub fn push(&mut self, value: &T) -> Result<u64, encase::internal::Error> {
-        self.cpu_buffer
-            .write(value)
-            .map(|offset| offset / T::SHADER_SIZE.get())
+        self.cpu_buffer.write(value).map(|offset| {
+            offset / T::SHADER_SIZE.get() // apparently we don't care about alignment here??
+        })
     }
 
     pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {
         let cpu_buffer = self.cpu_buffer.into_inner();
         if self.internal.gpu_buffer.size() < cpu_buffer.len() as wgpu::BufferAddress {
-            let gpu_buffer = render_state.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("wormhole dynamic buffer"),
-                size: self.internal.gpu_buffer.size() * 2,
-                usage: self.internal.gpu_buffer.usage(),
-                mapped_at_creation: false,
-            });
+            todo!()
+            // let gpu_buffer = render_state
+            //     .wgpu
+            //     .device
+            //     .create_buffer(&wgpu::BufferDescriptor {
+            //         label: Some("wormhole dynamic buffer"),
+            //         size: self.internal.gpu_buffer.size() * 2,
+            //         usage: self.internal.gpu_buffer.usage(),
+            //         mapped_at_creation: false,
+            //     });
 
-            let bind_group = render_state
-                .device
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("wormhole dynamic buffer bind group"),
-                    layout: self.internal.bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: gpu_buffer.as_entire_binding(),
-                    }],
-                });
+            // let bind_group =
+            //     render_state
+            //         .wgpu
+            //         .device
+            //         .create_bind_group(&wgpu::BindGroupDescriptor {
+            //             label: Some("wormhole dynamic buffer bind group"),
+            //             layout,
+            //             entries: &[wgpu::BindGroupEntry {
+            //                 binding: 0,
+            //                 resource: gpu_buffer.as_entire_binding(),
+            //             }],
+            //         });
 
-            self.internal.gpu_buffer = gpu_buffer;
-            self.internal.bind_group = bind_group;
+            // self.internal.gpu_buffer = gpu_buffer;
+            // self.internal.bind_group = bind_group;
         }
         render_state
+            .wgpu
             .queue
             .write_buffer(&self.internal.gpu_buffer, 0, &cpu_buffer);
 

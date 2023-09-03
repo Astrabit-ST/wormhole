@@ -18,8 +18,7 @@ use crate::assets;
 use crate::render;
 use crate::scene;
 
-mod shader;
-pub use shader::Shader;
+pub mod shader;
 mod textures;
 pub use textures::Textures;
 
@@ -81,10 +80,11 @@ impl Object {
 impl<'obj> Prepared<'obj> {
     pub fn draw(
         self,
+        render_state: &'obj render::State,
         resources: &scene::RenderResources<'obj>,
         render_pass: &mut wgpu::RenderPass<'obj>,
     ) {
-        Shader::bind(render_pass);
+        render_pass.set_pipeline(&render_state.pipelines.object);
 
         render_pass.set_bind_group(0, resources.camera, &[]);
         render_pass.set_bind_group(1, resources.transform, &[]);

@@ -38,16 +38,20 @@ where
         usage: wgpu::BufferUsages,
         bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
-        let gpu_buffer = render_state.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("wormhole single buffer"),
-            size: T::SHADER_SIZE.get() as wgpu::BufferAddress * 256,
-            usage: wgpu::BufferUsages::COPY_SRC
-                | wgpu::BufferUsages::COPY_DST
-                | wgpu::BufferUsages::UNIFORM
-                | usage,
-            mapped_at_creation: false,
-        });
+        let gpu_buffer = render_state
+            .wgpu
+            .device
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("wormhole single buffer"),
+                size: T::SHADER_SIZE.get() as wgpu::BufferAddress * 256,
+                usage: wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::UNIFORM
+                    | usage,
+                mapped_at_creation: false,
+            });
         let bind_group = render_state
+            .wgpu
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("wormhole dynamic buffer bind group"),
@@ -88,6 +92,7 @@ where
         let cpu_buffer = self.cpu_buffer.into_inner();
 
         render_state
+            .wgpu
             .queue
             .write_buffer(&self.internal.gpu_buffer, 0, &cpu_buffer);
 
