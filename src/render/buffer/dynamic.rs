@@ -38,8 +38,7 @@ where
         usage: wgpu::BufferUsages,
         bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
-        let buffer_size =
-            encase::internal::AlignmentValue::new(256).round_up(T::SHADER_SIZE.get()) * 256;
+        let buffer_size = wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN) * 256;
 
         let gpu_buffer = render_state
             .wgpu
@@ -89,9 +88,9 @@ where
     T: render::traits::DynamicBufferWriteable,
 {
     pub fn push(&mut self, value: &T) -> Result<u64, encase::internal::Error> {
-        self.cpu_buffer.write(value).map(|offset| {
-            offset / T::SHADER_SIZE.get() // apparently we don't care about alignment here??
-        })
+        self.cpu_buffer
+            .write(value)
+            .map(|offset| offset / wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN))
     }
 
     pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {
