@@ -28,7 +28,6 @@ pub struct Scene {
     objects: Vec<object::Object>,
 
     buffers: Buffers,
-    depth_texture: render::DepthTexture,
 
     last_update: Instant,
 }
@@ -36,6 +35,7 @@ pub struct Scene {
 pub struct Buffers {
     pub transform: render::dynamic::Buffer<render::Transform>,
     pub camera: render::single::Buffer<render::Camera>,
+    pub gbuffer: render::gbuffer::GBuffer,
 }
 
 pub struct PrepareResources<'buf> {
@@ -51,9 +51,7 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        let objects = (0..8_000)
-            .map(|i| object::Object::new(render_state, assets, i))
-            .collect_vec();
+        let objects = vec![object::Object::new(render_state, assets)];
 
         let transform_buffer = render::dynamic::Buffer::new(
             render_state,
@@ -67,12 +65,13 @@ impl Scene {
             &render_state.bind_groups.camera,
         );
 
+        let gbuffer = render::gbuffer::GBuffer::new(render_state);
+
         let buffers = Buffers {
             transform: transform_buffer,
             camera: camera_buffer,
+            gbuffer,
         };
-
-        let depth_texture = render::DepthTexture::builder().build(render_state);
 
         let last_update = Instant::now();
 
@@ -81,7 +80,6 @@ impl Scene {
             objects,
 
             buffers,
-            depth_texture,
 
             last_update,
         }
@@ -92,7 +90,7 @@ impl Scene {
         let dt = (self.last_update - before).as_secs_f32();
 
         if input_state.new_window_size().is_some() {
-            self.depth_texture.resize(render_state);
+            self.buffers.gbuffer.resize_to_screen(render_state);
         }
 
         for object in self.objects.iter_mut() {
@@ -149,6 +147,25 @@ impl Scene {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("wormhole defferred render pass"),
+            color_attachments: &self.buffers.gbuffer.as_color_attachments(),
+            depth_stencil_attachment: self.buffers.gbuffer.depth_stencil_attachment(),
+        });
+
+        let render_resources = RenderResources {
+            transform: resources.transform.finish(render_state),
+            camera: resources.camera.finish(render_state),
+        };
+
+        render_pass.set_pipeline(&render_state.pipelines.object);
+        render_pass.set_bind_group(0, render_resources.camera, &[]);
+        for prepared in prepared_objects {
+            prepared.draw(&render_resources, &mut render_pass);
+        }
+
+        drop(render_pass);
+
+        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("wormhole render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -158,24 +175,8 @@ impl Scene {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: None,
         });
-
-        let render_resources = RenderResources {
-            transform: resources.transform.finish(render_state),
-            camera: resources.camera.finish(render_state),
-        };
-
-        for prepared in prepared_objects {
-            prepared.draw(render_state, &render_resources, &mut render_pass);
-        }
 
         drop(render_pass);
 

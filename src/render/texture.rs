@@ -24,9 +24,10 @@ pub struct Texture {
 }
 
 pub struct TextureFormat {
-    format: wgpu::TextureFormat,
-    filtering: wgpu::FilterMode,
-    usage: wgpu::TextureUsages,
+    pub format: wgpu::TextureFormat,
+    pub filtering: wgpu::FilterMode,
+    pub usage: wgpu::TextureUsages,
+    pub compare: Option<wgpu::CompareFunction>,
 }
 
 impl TextureFormat {
@@ -36,6 +37,7 @@ impl TextureFormat {
         usage: wgpu::TextureUsages::COPY_SRC
             .union(wgpu::TextureUsages::COPY_DST)
             .union(wgpu::TextureUsages::TEXTURE_BINDING),
+        compare: None,
     };
 
     pub const NORMAL: Self = TextureFormat {
@@ -44,6 +46,21 @@ impl TextureFormat {
         usage: wgpu::TextureUsages::COPY_SRC
             .union(wgpu::TextureUsages::COPY_DST)
             .union(wgpu::TextureUsages::TEXTURE_BINDING),
+        compare: None,
+    };
+
+    pub const DEPTH: Self = TextureFormat {
+        format: wgpu::TextureFormat::Depth32Float,
+        filtering: wgpu::FilterMode::Nearest,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING.union(wgpu::TextureUsages::RENDER_ATTACHMENT),
+        compare: Some(wgpu::CompareFunction::LessEqual),
+    };
+
+    pub const GBUFFER: Self = TextureFormat {
+        format: wgpu::TextureFormat::Rgba32Float,
+        filtering: wgpu::FilterMode::Nearest,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING.union(wgpu::TextureUsages::RENDER_ATTACHMENT),
+        compare: Some(wgpu::CompareFunction::LessEqual),
     };
 }
 
@@ -73,6 +90,7 @@ impl Texture {
                 mag_filter: format.filtering,
                 min_filter: format.filtering,
                 mipmap_filter: format.filtering,
+                compare: format.compare,
                 ..Default::default()
             });
 
@@ -81,6 +99,18 @@ impl Texture {
             view,
             sampler,
         }
+    }
+
+    pub fn new_screen_size(render_state: &render::State, format: TextureFormat) -> Self {
+        Self::new(
+            render_state,
+            wgpu::Extent3d {
+                width: render_state.wgpu.surface_config.width,
+                height: render_state.wgpu.surface_config.height,
+                depth_or_array_layers: 1,
+            },
+            format,
+        )
     }
 
     pub fn from_image(
@@ -126,5 +156,28 @@ impl Texture {
             view,
             sampler,
         }
+    }
+
+    pub fn resize_to_screen(&mut self, render_state: &render::State) {
+        let texture = render_state
+            .wgpu
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: render_state.wgpu.surface_config.width,
+                    height: render_state.wgpu.surface_config.height,
+                    depth_or_array_layers: 1,
+                },
+                dimension: wgpu::TextureDimension::D2,
+                mip_level_count: 1,
+                sample_count: 1,
+                format: self.texture.format(),
+                usage: self.texture.usage(),
+                view_formats: &[],
+            });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.texture = texture;
+        self.view = view;
     }
 }

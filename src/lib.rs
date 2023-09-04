@@ -53,6 +53,7 @@ pub mod input {
 pub mod render {
     mod buffer {
         pub mod dynamic;
+        pub mod gbuffer;
         pub mod single;
     }
     pub use buffer::*;
@@ -69,9 +70,6 @@ pub mod render {
     pub mod texture;
     pub use texture::Texture;
     pub use texture::TextureFormat;
-
-    pub mod depth_texture;
-    pub use depth_texture::DepthTexture;
 
     mod vertex;
     pub use vertex::Vertex;

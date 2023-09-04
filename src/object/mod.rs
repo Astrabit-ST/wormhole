@@ -36,21 +36,24 @@ pub struct Prepared<'obj> {
 }
 
 impl Object {
-    pub fn new(render_state: &render::State, assets: &mut assets::Loader, i: usize) -> Self {
-        let transform = render::Transform::from_position(glam::Vec3::new(
-            (i % 20) as f32 * 2.,
-            (i / 400) as f32 * 2.,
-            (i % 400 / 20) as f32 * 2.,
-        ));
+    pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
+        let transform = render::Transform::new();
 
         let (_, models) = assets.models.load("assets/meshes/cube.obj");
         let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
 
-        let (_, albedo) = assets
+        let albedo_id = assets
             .textures
             .load(render_state, "assets/textures/cube-diffuse.jpg");
+        let normal_id = assets
+            .textures
+            .load(render_state, "assets/textures/cube-normal.png");
 
-        let textures = Textures::new(render_state, albedo);
+        let textures = Textures::new(
+            render_state,
+            assets.textures.get_expect(albedo_id),
+            assets.textures.get_expect(normal_id),
+        );
 
         Self {
             transform,
@@ -80,13 +83,9 @@ impl Object {
 impl<'obj> Prepared<'obj> {
     pub fn draw(
         self,
-        render_state: &'obj render::State,
         resources: &scene::RenderResources<'obj>,
         render_pass: &mut wgpu::RenderPass<'obj>,
     ) {
-        render_pass.set_pipeline(&render_state.pipelines.object);
-
-        render_pass.set_bind_group(0, resources.camera, &[]);
         render_pass.set_bind_group(1, resources.transform, &[]);
 
         render_pass.set_push_constants(

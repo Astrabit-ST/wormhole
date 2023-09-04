@@ -34,11 +34,7 @@ impl Textures {
         }
     }
 
-    pub fn load(
-        &mut self,
-        render_state: &render::State,
-        path: impl AsRef<camino::Utf8Path>,
-    ) -> (Id, &render::Texture) {
+    pub fn load(&mut self, render_state: &render::State, path: impl AsRef<camino::Utf8Path>) -> Id {
         let path = path.as_ref();
 
         let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
@@ -53,7 +49,7 @@ impl Textures {
             .get(*id)
             .expect("asset not existent despite being loaded");
 
-        (Id(*id), texture)
+        Id(*id)
     }
 
     pub fn load_with_format(
@@ -61,7 +57,7 @@ impl Textures {
         render_state: &render::State,
         path: impl AsRef<camino::Utf8Path>,
         format: render::TextureFormat,
-    ) -> (Id, &render::Texture) {
+    ) -> Id {
         let path = path.as_ref();
 
         let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
@@ -70,12 +66,8 @@ impl Textures {
 
             self.textures.insert(texture)
         });
-        let texture = self
-            .textures
-            .get(*id)
-            .expect("asset not existent despite being loaded");
 
-        (Id(*id), texture)
+        Id(*id)
     }
 
     pub fn get_expect(&self, id: Id) -> &render::Texture {
