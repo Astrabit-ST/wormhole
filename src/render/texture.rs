@@ -57,7 +57,7 @@ impl TextureFormat {
     };
 
     pub const GBUFFER: Self = TextureFormat {
-        format: wgpu::TextureFormat::Rgba32Float,
+        format: wgpu::TextureFormat::Rgba16Float,
         filtering: wgpu::FilterMode::Nearest,
         usage: wgpu::TextureUsages::TEXTURE_BINDING.union(wgpu::TextureUsages::RENDER_ATTACHMENT),
         compare: None,
