@@ -24,6 +24,12 @@ pub struct Camera {
     transform: Transform,
 }
 
+#[derive(encase::ShaderType)]
+pub struct Data {
+    view_pos: glam::Vec4,
+    view_proj: glam::Mat4,
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
 struct Transform {
@@ -147,9 +153,9 @@ impl Camera {
 impl encase::ShaderSize for Camera {}
 
 impl encase::ShaderType for Camera {
-    type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
+    type ExtraMetadata = <Data as encase::ShaderType>::ExtraMetadata;
     const METADATA: encase::private::Metadata<Self::ExtraMetadata> =
-        <glam::Mat4 as encase::ShaderType>::METADATA;
+        <Data as encase::ShaderType>::METADATA;
 }
 
 impl encase::internal::WriteInto for Camera {
@@ -157,8 +163,14 @@ impl encase::internal::WriteInto for Camera {
     where
         B: encase::internal::BufferMut,
     {
-        (self.projection.build_projection_matrix() * self.transform.build_translation_matrix())
-            .write_into(writer)
+        let view_proj =
+            self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
+        let view_pos = glam::Vec4::from((self.transform.position, 1.0));
+        Data {
+            view_pos,
+            view_proj,
+        }
+        .write_into(writer)
     }
 }
 
@@ -168,7 +180,7 @@ impl render::traits::Bindable for Camera {
             label: Some("camera bind group layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::FRAGMENT),
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,

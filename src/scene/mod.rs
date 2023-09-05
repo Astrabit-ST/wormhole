@@ -237,7 +237,8 @@ impl Scene {
         });
 
         render_pass.set_pipeline(&render_state.pipelines.light);
-        render_pass.set_bind_group(0, &self.buffers.geometry.bind_group, &[]);
+        render_pass.set_bind_group(0, render_resources.camera, &[]);
+        render_pass.set_bind_group(1, &self.buffers.geometry.bind_group, &[]);
         prepared_light_hack.draw(&render_resources, &mut render_pass);
 
         drop(render_pass);

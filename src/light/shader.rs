@@ -26,7 +26,10 @@ impl render::traits::Shadeable for super::Light {
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("lighting render pipeline layout"),
-                    bind_group_layouts: &[&render_state.bind_groups.gbuffer],
+                    bind_group_layouts: &[
+                        &render_state.bind_groups.camera,
+                        &render_state.bind_groups.gbuffer,
+                    ],
                     push_constant_ranges: &[],
                 });
 
