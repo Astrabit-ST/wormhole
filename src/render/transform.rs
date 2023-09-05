@@ -21,11 +21,12 @@ use crate::render;
 pub struct Transform {
     pub position: glam::Vec3,
     pub rotation: glam::Quat,
+    pub scale: glam::Vec3,
 }
 
 impl Transform {
     fn to_matrix(self) -> glam::Mat4 {
-        glam::Mat4::from_rotation_translation(self.rotation, self.position)
+        glam::Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.position)
     }
 }
 
@@ -34,18 +35,28 @@ impl Transform {
         Self {
             position: glam::Vec3::ZERO,
             rotation: glam::Quat::IDENTITY,
+            scale: glam::Vec3::ONE,
         }
+    }
+
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_position(glam::vec3(x, y, z))
     }
 
     pub fn from_position(position: glam::Vec3) -> Self {
         Self {
             position,
             rotation: glam::Quat::IDENTITY,
+            scale: glam::Vec3::ONE,
         }
     }
 
     pub fn from_position_rotation(position: glam::Vec3, rotation: glam::Quat) -> Self {
-        Self { position, rotation }
+        Self {
+            position,
+            rotation,
+            scale: glam::Vec3::ONE,
+        }
     }
 }
 
