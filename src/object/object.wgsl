@@ -68,7 +68,7 @@ struct FragmentOutput {
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-    let normal = vec4<f32>(in.normal, 0.0) * textureSample(t_normal, s_normal, in.tex_coords);
+    let normal = vec4<f32>(in.normal, 0.0); // * textureSample(t_normal, s_normal, in.tex_coords);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     out.normal = normal;

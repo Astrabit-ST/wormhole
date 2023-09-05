@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::light;
 use crate::object;
 use crate::render;
 
@@ -45,10 +46,12 @@ pub struct BindGroups {
     pub camera: wgpu::BindGroupLayout,
     pub transform: wgpu::BindGroupLayout,
     pub object_textures: wgpu::BindGroupLayout,
+    pub gbuffer: wgpu::BindGroupLayout,
 }
 
 pub struct RenderPipelines {
     pub object: wgpu::RenderPipeline,
+    pub light: wgpu::RenderPipeline,
 }
 
 impl GpuCreated {
@@ -128,6 +131,7 @@ impl GpuCreated {
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
         let object_textures = object::Textures::create_bind_group_layout(&self);
+        let gbuffer = render::gbuffer::GBuffer::create_bind_group_layout(&self);
 
         BindGroupsCreated {
             wgpu: self.wgpu,
@@ -135,6 +139,7 @@ impl GpuCreated {
                 camera,
                 transform,
                 object_textures,
+                gbuffer,
             },
         }
     }
@@ -147,11 +152,12 @@ impl BindGroupsCreated {
         use render::traits::Shadeable;
 
         let object = object::Object::create_render_pipeline(&self);
+        let light = light::Light::create_render_pipeline(&self);
 
         State {
             wgpu: self.wgpu,
             bind_groups: self.bind_groups,
-            pipelines: RenderPipelines { object },
+            pipelines: RenderPipelines { object, light },
         }
     }
 }

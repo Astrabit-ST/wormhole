@@ -31,13 +31,9 @@ pub struct Writer<'buf, T> {
 
 impl<T> Buffer<T>
 where
-    T: encase::ShaderSize,
+    T: encase::ShaderSize + render::traits::Bindable,
 {
-    pub fn new(
-        render_state: &render::State,
-        usage: wgpu::BufferUsages,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
+    pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
         let gpu_buffer = render_state
             .wgpu
             .device
@@ -55,7 +51,7 @@ where
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("wormhole dynamic buffer bind group"),
-                layout: bind_group_layout,
+                layout: T::get_layout(render_state),
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: gpu_buffer.as_entire_binding(),

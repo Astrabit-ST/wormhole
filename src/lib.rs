@@ -80,6 +80,8 @@ pub mod render {
     pub mod traits;
 }
 
+pub mod light;
+
 pub mod object;
 
 pub mod scene;

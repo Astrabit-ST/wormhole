@@ -33,11 +33,7 @@ impl<T> Buffer<T>
 where
     T: render::traits::DynamicBufferWriteable,
 {
-    pub fn new(
-        render_state: &render::State,
-        usage: wgpu::BufferUsages,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
+    pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
         let buffer_size = wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN) * 256;
 
         let gpu_buffer = render_state
@@ -57,7 +53,7 @@ where
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("wormhole dynamic buffer bind group"),
-                layout: bind_group_layout,
+                layout: T::get_layout(render_state),
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: gpu_buffer.as_entire_binding(),

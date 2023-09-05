@@ -36,6 +36,8 @@ pub struct Buffers {
     pub transform: render::dynamic::Buffer<render::Transform>,
     pub camera: render::single::Buffer<render::Camera>,
     pub gbuffer: render::gbuffer::GBuffer,
+
+    light_temporary_hack: render::Mesh,
 }
 
 pub struct PrepareResources<'buf> {
@@ -51,26 +53,53 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        let objects = vec![object::Object::new(render_state, assets)];
+        let objects = (0..100)
+            .map(|i| object::Object::new(render_state, assets, i))
+            .collect_vec();
 
-        let transform_buffer = render::dynamic::Buffer::new(
-            render_state,
-            wgpu::BufferUsages::empty(),
-            &render_state.bind_groups.transform,
-        );
+        let transform_buffer =
+            render::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
-        let camera_buffer = render::single::Buffer::new(
-            render_state,
-            wgpu::BufferUsages::empty(),
-            &render_state.bind_groups.camera,
-        );
+        let camera_buffer = render::single::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
         let gbuffer = render::gbuffer::GBuffer::new(render_state);
+
+        let light_temporary_hack = render::Mesh::new(
+            render_state,
+            &[
+                render::Vertex {
+                    position: glam::vec3(-1.0, 1.0, 0.0),
+                    tex_coords: glam::vec2(0.0, 0.0),
+                    ..Default::default()
+                },
+                render::Vertex {
+                    position: glam::vec3(1.0, 1.0, 0.0),
+                    tex_coords: glam::vec2(1.0, 0.0),
+                    ..Default::default()
+                },
+                render::Vertex {
+                    position: glam::vec3(1.0, -1.0, 0.0),
+                    tex_coords: glam::vec2(1.0, 1.0),
+                    ..Default::default()
+                },
+                render::Vertex {
+                    position: glam::vec3(-1.0, -1.0, 0.0),
+                    tex_coords: glam::vec2(0.0, 1.0),
+                    ..Default::default()
+                },
+            ],
+            &[
+                2, 1, 0, //
+                2, 0, 3,
+            ],
+        );
 
         let buffers = Buffers {
             transform: transform_buffer,
             camera: camera_buffer,
             gbuffer,
+
+            light_temporary_hack,
         };
 
         let last_update = Instant::now();
@@ -101,17 +130,6 @@ impl Scene {
     }
 
     pub fn render(&mut self, render_state: &render::State) {
-        let output = match render_state.wgpu.surface.get_current_texture() {
-            Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
-                render_state.reconfigure_surface();
-
-                return;
-            }
-            Err(wgpu::SurfaceError::Timeout) => return,
-            Err(wgpu::SurfaceError::OutOfMemory) => panic!("out of gpu memory. exiting"),
-        };
-
         let mut encoder =
             render_state
                 .wgpu
@@ -141,11 +159,6 @@ impl Scene {
 
         encoder.pop_debug_group();
 
-        // Do rendering
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("wormhole defferred render pass"),
             color_attachments: &self.buffers.gbuffer.as_color_attachments(),
@@ -165,10 +178,25 @@ impl Scene {
 
         drop(render_pass);
 
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("wormhole render pass"),
+        let output = match render_state.wgpu.surface.get_current_texture() {
+            Ok(texture) => texture,
+            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+                render_state.reconfigure_surface();
+
+                return;
+            }
+            Err(wgpu::SurfaceError::Timeout) => return,
+            Err(wgpu::SurfaceError::OutOfMemory) => panic!("out of gpu memory. exiting"),
+        };
+
+        let output_view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("wormhole lighting pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                view: &output_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -177,6 +205,10 @@ impl Scene {
             })],
             depth_stencil_attachment: None,
         });
+
+        render_pass.set_pipeline(&render_state.pipelines.light);
+        render_pass.set_bind_group(0, &self.buffers.gbuffer.bind_group, &[]);
+        self.buffers.light_temporary_hack.draw(&mut render_pass);
 
         drop(render_pass);
 

@@ -36,8 +36,12 @@ pub struct Prepared<'obj> {
 }
 
 impl Object {
-    pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
-        let transform = render::Transform::new();
+    pub fn new(render_state: &render::State, assets: &mut assets::Loader, i: usize) -> Self {
+        let transform = render::Transform::from_position(glam::vec3(
+            (i % 10) as f32 * 3.,
+            0.0,
+            (i / 10) as f32 * 3.,
+        ));
 
         let (_, models) = assets.models.load("assets/meshes/cube.obj");
         let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);

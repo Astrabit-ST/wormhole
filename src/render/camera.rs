@@ -177,4 +177,8 @@ impl render::traits::Bindable for Camera {
                 count: None,
             }],
         };
+
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
+        &render_state.bind_groups.camera
+    }
 }

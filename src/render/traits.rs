@@ -25,14 +25,14 @@ pub trait Bindable {
             .device
             .create_bind_group_layout(&Self::LAYOUT_DESCRIPTOR)
     }
+
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout;
 }
 
 pub trait DynamicBufferWriteable:
-    encase::ShaderSize + encase::ShaderType + encase::internal::WriteInto
+    encase::ShaderSize + encase::ShaderType + encase::internal::WriteInto + Bindable
 {
     const ALIGN: u64 = 32;
-
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout;
 }
 
 pub trait Shadeable {

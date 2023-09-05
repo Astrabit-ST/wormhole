@@ -100,4 +100,8 @@ impl render::traits::Bindable for Textures {
                 },
             ],
         };
+
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
+        &render_state.bind_groups.object_textures
+    }
 }

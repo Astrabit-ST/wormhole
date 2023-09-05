@@ -60,7 +60,7 @@ impl TextureFormat {
         format: wgpu::TextureFormat::Rgba32Float,
         filtering: wgpu::FilterMode::Nearest,
         usage: wgpu::TextureUsages::TEXTURE_BINDING.union(wgpu::TextureUsages::RENDER_ATTACHMENT),
-        compare: Some(wgpu::CompareFunction::LessEqual),
+        compare: None,
     };
 }
 
