@@ -29,22 +29,22 @@ pub struct Object {
 }
 
 pub struct Prepared<'obj> {
-    mesh: &'obj render::Mesh,
+    mesh: render::PreparedMesh,
     textures: &'obj textures::Textures,
 
     transform_index: u32,
 }
 
 impl Object {
-    pub fn new(render_state: &render::State, assets: &mut assets::Loader, i: usize) -> Self {
+    pub fn new(render_state: &render::State, assets: &mut assets::Loader, i: isize) -> Self {
         let transform = render::Transform::from_position(glam::vec3(
-            (i % 10) as f32 * 3.,
+            (i % 20 - 10) as f32 * 2.,
             0.0,
-            (i / 10) as f32 * 3.,
+            (i / 20 - 10) as f32 * 2.,
         ));
 
         let (_, models) = assets.models.load("assets/meshes/cube.obj");
-        let mesh = render::Mesh::from_tobj_mesh(render_state, &models[0].mesh);
+        let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
 
         let albedo_id = assets
             .textures
@@ -66,20 +66,15 @@ impl Object {
         }
     }
 
-    pub fn update(&mut self, dt: f32) {
-        self.transform.rotation *=
-            glam::Quat::from_euler(glam::EulerRot::XYZ, 180_f32.to_radians() * dt, 0., 0.);
-    }
+    pub fn update(&mut self, _dt: f32) {}
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
-        let transform_index = resources
-            .transform
-            .push(&self.transform)
-            .expect("failed to write transform data") as u32;
+        let transform_index = resources.transform.push(&self.transform) as u32;
+        let mesh = self.mesh.prepare(resources);
         Prepared {
-            mesh: &self.mesh,
-            textures: &self.textures,
+            mesh,
             transform_index,
+            textures: &self.textures,
         }
     }
 }
@@ -90,15 +85,21 @@ impl<'obj> Prepared<'obj> {
         resources: &scene::RenderResources<'obj>,
         render_pass: &mut wgpu::RenderPass<'obj>,
     ) {
-        render_pass.set_bind_group(1, resources.transform, &[]);
+        render_pass.push_debug_group("wormhole object draw");
 
-        render_pass.set_push_constants(
-            wgpu::ShaderStages::VERTEX,
-            0,
-            bytemuck::bytes_of(&self.transform_index),
-        );
+        {
+            render_pass.set_bind_group(1, resources.transform, &[]);
 
-        self.textures.bind(render_pass, 2);
-        self.mesh.draw(render_pass);
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                bytemuck::bytes_of(&self.transform_index),
+            );
+
+            self.textures.bind(render_pass, 2);
+            self.mesh.draw(resources, render_pass);
+        }
+
+        render_pass.pop_debug_group();
     }
 }

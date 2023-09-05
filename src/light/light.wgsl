@@ -54,11 +54,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var lighting = albedo * 0.01;
 
-        {
-        let light_dir = normalize(light.position - frag_pos);
-        let diffuse = max(dot(normal, light_dir), 0.0) * albedo * light.color;
-        lighting += diffuse;
-    }
+    let light_dir = normalize(light.position - frag_pos);
+    let diffuse = max(dot(normal, light_dir), 0.0) * albedo * light.color;
+    lighting += diffuse;
 
     return vec4<f32>(lighting, 1.0);
 }

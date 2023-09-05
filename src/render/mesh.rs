@@ -15,47 +15,32 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
+use crate::scene;
 use itertools::Itertools;
-use wgpu::util::DeviceExt;
 
 pub struct Mesh {
-    vertices: wgpu::Buffer,
-    indices: wgpu::Buffer,
-    index_count: u32,
+    pub vertices: Vec<render::Vertex>,
+    pub indices: Vec<u32>,
+}
+
+pub struct PreparedMesh {
+    vertex_offset: u64,
+    index_offset: u64,
+
+    vertex_count: u64,
+    index_count: u64,
 }
 
 impl Mesh {
-    pub fn new(render_state: &render::State, vertices: &[render::Vertex], indices: &[u32]) -> Self {
-        let index_count = indices.len() as u32;
-        let vertices =
-            render_state
-                .wgpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("mesh vertices"),
-                    contents: bytemuck::cast_slice(vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
-        let indices =
-            render_state
-                .wgpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("mesh vertices"),
-                    contents: bytemuck::cast_slice(indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
+    pub fn new(vertices: &[render::Vertex], indices: &[u32]) -> Self {
         Self {
-            vertices,
-            indices,
-            index_count,
+            vertices: vertices.to_vec(),
+            indices: indices.to_vec(),
         }
     }
 
     /// The mesh must be loaded with `triangluate` and `single_index` set to true.
-    pub fn from_tobj_mesh(render_state: &render::State, mesh: &tobj::Mesh) -> Self {
+    pub fn from_tobj_mesh(mesh: &tobj::Mesh) -> Self {
         // Create a list of vertices from the mesh.
         let mut tex_coords = bytemuck::cast_slice(&mesh.texcoords).iter().copied();
         let mut normals = bytemuck::cast_slice(&mesh.normals).iter().copied();
@@ -75,12 +60,45 @@ impl Mesh {
             })
             .collect_vec();
 
-        Self::new(render_state, &vertices, &mesh.indices)
+        Self {
+            vertices,
+            indices: mesh.indices.clone(),
+        }
     }
 
-    pub fn draw<'rpass>(&'rpass self, render_pass: &mut wgpu::RenderPass<'rpass>) {
-        render_pass.set_vertex_buffer(0, self.vertices.slice(..));
-        render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+    pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedMesh {
+        let (vertex_offset, index_offset) = resources.mesh.push(&self.vertices, &self.indices);
+
+        let vertex_count = self.vertices.len() as u64;
+        let index_count = self.indices.len() as u64;
+
+        PreparedMesh {
+            vertex_offset,
+            index_offset,
+            vertex_count,
+            index_count,
+        }
+    }
+}
+
+impl PreparedMesh {
+    pub fn draw<'rpass>(
+        self,
+        resources: &scene::RenderResources<'rpass>,
+        render_pass: &mut wgpu::RenderPass<'rpass>,
+    ) {
+        let vertex_start = self.vertex_offset;
+        let vertex_end =
+            self.vertex_offset + (self.vertex_count * std::mem::size_of::<render::Vertex>() as u64);
+
+        let index_start = self.index_offset;
+        let index_end = self.index_offset + (self.index_count * std::mem::size_of::<u32>() as u64);
+
+        render_pass.set_vertex_buffer(0, resources.vertices.slice(vertex_start..vertex_end));
+        render_pass.set_index_buffer(
+            resources.indices.slice(index_start..index_end),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
     }
 }

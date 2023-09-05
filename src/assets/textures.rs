@@ -44,10 +44,6 @@ impl Textures {
 
             self.textures.insert(texture)
         });
-        let texture = self
-            .textures
-            .get(*id)
-            .expect("asset not existent despite being loaded");
 
         Id(*id)
     }

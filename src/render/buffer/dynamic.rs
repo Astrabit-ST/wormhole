@@ -17,6 +17,8 @@
 use crate::render;
 use std::marker::PhantomData;
 
+// A dynamically growing GPU buffer.
+// Useful for writing frame specific data that may change in amount
 pub struct Buffer<T> {
     gpu_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
@@ -83,10 +85,12 @@ impl<'buf, T> Writer<'buf, T>
 where
     T: render::traits::DynamicBufferWriteable,
 {
-    pub fn push(&mut self, value: &T) -> Result<u64, encase::internal::Error> {
-        self.cpu_buffer
+    pub fn push(&mut self, value: &T) -> u64 {
+        let offset = self
+            .cpu_buffer
             .write(value)
-            .map(|offset| offset / wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN))
+            .expect("failed to write transform data");
+        offset / wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN)
     }
 
     pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {

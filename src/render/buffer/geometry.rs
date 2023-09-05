@@ -16,7 +16,7 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
 
-pub struct GBuffer {
+pub struct Buffer {
     pub albedo: render::Texture,
     pub normal: render::Texture,
     pub position: render::Texture,
@@ -26,7 +26,7 @@ pub struct GBuffer {
     pub bind_group: wgpu::BindGroup, // FIXME: streamline
 }
 
-impl GBuffer {
+impl Buffer {
     pub fn new(render_state: &render::State) -> Self {
         let albedo = render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
         let normal = render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
@@ -163,7 +163,7 @@ impl GBuffer {
     }
 }
 
-impl render::traits::Bindable for GBuffer {
+impl render::traits::Bindable for Buffer {
     const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
         wgpu::BindGroupLayoutDescriptor {
             label: Some("wormhole gbuffer bind group layout"),

@@ -131,7 +131,7 @@ impl GpuCreated {
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
         let object_textures = object::Textures::create_bind_group_layout(&self);
-        let gbuffer = render::gbuffer::GBuffer::create_bind_group_layout(&self);
+        let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
 
         BindGroupsCreated {
             wgpu: self.wgpu,

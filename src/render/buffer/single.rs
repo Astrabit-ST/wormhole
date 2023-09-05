@@ -17,11 +17,13 @@
 use crate::render;
 use std::marker::PhantomData;
 
+// A buffer for a single "object" that can be written to.
+// Only one object can be written to at a time, the type system enforces this.
 pub struct Buffer<T> {
     gpu_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
 
-    phantom: PhantomData<[T]>,
+    phantom: PhantomData<T>,
 }
 
 pub struct Writer<'buf, T> {

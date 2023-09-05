@@ -81,6 +81,8 @@ impl Mouse {
 
     pub fn process_device(&mut self, event: &DeviceEvent) {
         match event {
+            // This gives us raw deltas without the OS meddling, which is perfect for a first person camera
+            // winit_input_helper lacks this, which is why I made this input handler
             DeviceEvent::MouseMotion { delta } => {
                 self.mouse_diff = Some((delta.0 as f32, delta.1 as f32))
             }

@@ -36,15 +36,8 @@ impl Models {
         let path = path.as_ref();
 
         let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
-            let (models, _) = tobj::load_obj(
-                path,
-                &tobj::LoadOptions {
-                    single_index: true,
-                    triangulate: true,
-                    ..Default::default()
-                },
-            )
-            .expect("failed to load models");
+            let (models, _) =
+                tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS).expect("failed to load models");
 
             self.models.insert(models)
         });
