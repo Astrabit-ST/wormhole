@@ -251,7 +251,5 @@ impl Scene {
             .submit(std::iter::once(encoder.finish()));
 
         output.present();
-
-        std::process::exit(1)
     }
 }

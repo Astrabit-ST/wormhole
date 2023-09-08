@@ -95,7 +95,6 @@ impl encase::internal::WriteInto for Transform {
             obj_proj,
             normal_proj,
         };
-        println!("{data:#?}");
         data.write_into(writer)
     }
 }

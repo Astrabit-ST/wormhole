@@ -41,7 +41,7 @@ where
             .device
             .create_buffer(&wgpu::BufferDescriptor {
                 label: Some("wormhole single buffer"),
-                size: T::SHADER_SIZE.get() as wgpu::BufferAddress * 256,
+                size: T::SHADER_SIZE.get() as wgpu::BufferAddress,
                 usage: wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::COPY_DST
                     | wgpu::BufferUsages::UNIFORM
