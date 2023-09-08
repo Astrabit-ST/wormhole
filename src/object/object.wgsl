@@ -29,7 +29,7 @@ var<uniform> camera: Camera;
 
 struct Transform {
     obj_proj: mat4x4<f32>,
-    normal_proj: mat3x3<f32>,
+    normal_proj: mat4x4<f32>,
 }
 @group(1) @binding(0)
 var<storage> transforms: array<Transform>;
@@ -52,9 +52,9 @@ fn vs_main(
     out.position = (transform.obj_proj * vec4<f32>(model.position, 1.0)).xyz;
     out.clip_position = camera.view_proj * transform.obj_proj * vec4<f32>(model.position, 1.0);
 
-    out.world_normal = normalize(transform.normal_proj * model.normal);
-    out.world_tangent = normalize(transform.normal_proj * model.tangent);
-    out.world_bitangent = normalize(transform.normal_proj * model.bitangent);
+    out.world_normal = normalize(transform.normal_proj * vec4<f32>(model.normal, 1.0)).xyz;
+    out.world_tangent = normalize(transform.normal_proj * vec4<f32>(model.tangent, 1.0)).xyz;
+    out.world_bitangent = normalize(transform.normal_proj * vec4<f32>(model.bitangent, 1.0)).xyz;
 
     return out;
 }
@@ -81,18 +81,18 @@ struct FragmentOutput {
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-    let tangent_matrix = transpose(mat3x3<f32>(
+    let tangent_matrix = mat3x3<f32>(
         in.world_tangent,
         in.world_bitangent,
         in.world_normal,
-    ));
+    );
 
     var normal_rgb = textureSample(t_normal, s_normal, in.tex_coords).xyz;
     normal_rgb = normalize(normal_rgb * 2.0 - 1.0);
     let normal = normalize(tangent_matrix * normal_rgb);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    out.normal = vec4<f32>(normal, 0.0);
+    out.normal = vec4<f32>(in.world_normal, 0.0);
     out.position = vec4<f32>(in.position, 0.0);
 
     return out;

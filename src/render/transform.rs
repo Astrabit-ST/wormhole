@@ -16,7 +16,7 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 #[derive(PartialEq)]
 pub struct Transform {
     pub position: glam::Vec3,
@@ -24,10 +24,20 @@ pub struct Transform {
     pub scale: glam::Vec3,
 }
 
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            position: glam::Vec3::ZERO,
+            rotation: glam::Quat::IDENTITY,
+            scale: glam::Vec3::ONE,
+        }
+    }
+}
+
 #[derive(encase::ShaderType, Debug)]
 pub struct Data {
     obj_proj: glam::Mat4,
-    normal_proj: glam::Mat3,
+    normal_proj: glam::Mat4,
 }
 
 impl Transform {
@@ -35,18 +45,14 @@ impl Transform {
         glam::Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.position)
     }
 
-    fn to_normal_proj(self) -> glam::Mat3 {
-        glam::Mat3::from_quat(self.rotation)
+    fn to_normal_proj(self) -> glam::Mat4 {
+        glam::Mat4::from_quat(self.rotation)
     }
 }
 
 impl Transform {
     pub fn new() -> Self {
-        Self {
-            position: glam::Vec3::ZERO,
-            rotation: glam::Quat::IDENTITY,
-            scale: glam::Vec3::ONE,
-        }
+        Self::default()
     }
 
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
