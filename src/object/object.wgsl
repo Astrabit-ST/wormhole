@@ -3,14 +3,21 @@
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
+
     @location(2) normal: vec3<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
+
     @location(0) tex_coords: vec2<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) position: vec3<f32>
+    @location(1) position: vec3<f32>,
+
+    @location(2) world_normal: vec3<f32>,
+    @location(3) world_tangent: vec3<f32>,
+    @location(4) world_bitangent: vec3<f32>,
 };
 
 struct Camera {
@@ -21,13 +28,14 @@ struct Camera {
 var<uniform> camera: Camera;
 
 struct Transform {
-    obj_proj: mat4x4<f32>
+    obj_proj: mat4x4<f32>,
+    normal_proj: mat3x3<f32>,
 }
 @group(1) @binding(0)
 var<storage> transforms: array<Transform>;
 
 struct Constants {
-    transform_index: u32
+    transform_index: i32
 }
 var<push_constant> constants: Constants;
 
@@ -40,9 +48,13 @@ fn vs_main(
     let transform = transforms[constants.transform_index];
 
     out.tex_coords = model.tex_coords;
-    out.normal = (transform.obj_proj * vec4<f32>(model.normal, 0.0)).xyz;
+
     out.position = (transform.obj_proj * vec4<f32>(model.position, 1.0)).xyz;
     out.clip_position = camera.view_proj * transform.obj_proj * vec4<f32>(model.position, 1.0);
+
+    out.world_normal = normalize(transform.normal_proj * model.normal);
+    out.world_tangent = normalize(transform.normal_proj * model.tangent);
+    out.world_bitangent = normalize(transform.normal_proj * model.bitangent);
 
     return out;
 }
@@ -69,10 +81,18 @@ struct FragmentOutput {
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-    let normal = vec4<f32>(in.normal, 0.0); // * textureSample(t_normal, s_normal, in.tex_coords);
+    let tangent_matrix = transpose(mat3x3<f32>(
+        in.world_tangent,
+        in.world_bitangent,
+        in.world_normal,
+    ));
+
+    var normal_rgb = textureSample(t_normal, s_normal, in.tex_coords).xyz;
+    normal_rgb = normalize(normal_rgb * 2.0 - 1.0);
+    let normal = normalize(tangent_matrix * normal_rgb);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    out.normal = normal;
+    out.normal = vec4<f32>(normal, 0.0);
     out.position = vec4<f32>(in.position, 0.0);
 
     return out;

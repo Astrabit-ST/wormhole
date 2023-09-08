@@ -32,7 +32,7 @@ pub struct Prepared<'obj> {
     mesh: render::PreparedMesh,
     textures: &'obj textures::Textures,
 
-    transform_index: u32,
+    transform_index: i32,
 }
 
 impl Object {
@@ -66,7 +66,7 @@ impl Object {
     pub fn update(&mut self, _dt: f32) {}
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
-        let transform_index = resources.transform.push(&self.transform) as u32;
+        let transform_index = resources.transform.push(&self.transform) as i32;
         let mesh = self.mesh.prepare(resources);
         Prepared {
             mesh,

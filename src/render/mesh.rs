@@ -45,7 +45,7 @@ impl Mesh {
         let mut tex_coords = bytemuck::cast_slice(&mesh.texcoords).iter().copied();
         let mut normals = bytemuck::cast_slice(&mesh.normals).iter().copied();
 
-        let vertices = bytemuck::cast_slice(&mesh.positions)
+        let mut vertices = bytemuck::cast_slice(&mesh.positions)
             .iter()
             .copied()
             .map(|position| {
@@ -56,9 +56,49 @@ impl Mesh {
                     position,
                     tex_coords,
                     normal,
+
+                    ..Default::default()
                 }
             })
             .collect_vec();
+        let mut triangles_included = vec![0; vertices.len()];
+
+        for i in mesh.indices.chunks(3) {
+            let v0 = vertices[i[0] as usize];
+            let v1 = vertices[i[1] as usize];
+            let v2 = vertices[i[2] as usize];
+
+            let delta_pos1 = v1.position - v0.position;
+            let delta_pos2 = v2.position - v0.position;
+
+            let delta_uv1 = v1.tex_coords - v0.tex_coords;
+            let delta_uv2 = v2.tex_coords - v0.tex_coords;
+
+            let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+            let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
+            // We flip the bitangent to enable right-handed normal
+            // maps with wgpu texture coordinate system
+            let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * -r;
+
+            // We'll use the same tangent/bitangent for each vertex in the triangle
+            vertices[i[0] as usize].tangent = tangent + v0.tangent;
+            vertices[i[1] as usize].tangent = tangent + v1.tangent;
+            vertices[i[2] as usize].tangent = tangent + v2.tangent;
+
+            vertices[i[0] as usize].bitangent = bitangent + v0.bitangent;
+            vertices[i[1] as usize].bitangent = bitangent + v1.bitangent;
+            vertices[i[2] as usize].bitangent = bitangent + v2.bitangent;
+
+            triangles_included[i[0] as usize] += 1;
+            triangles_included[i[1] as usize] += 1;
+            triangles_included[i[2] as usize] += 1;
+        }
+        for (i, n) in triangles_included.into_iter().enumerate() {
+            let denom = 1.0 / n as f32;
+            let v = &mut vertices[i];
+            v.tangent *= denom;
+            v.bitangent *= denom;
+        }
 
         Self {
             vertices,

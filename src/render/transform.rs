@@ -24,9 +24,19 @@ pub struct Transform {
     pub scale: glam::Vec3,
 }
 
+#[derive(encase::ShaderType, Debug)]
+pub struct Data {
+    obj_proj: glam::Mat4,
+    normal_proj: glam::Mat3,
+}
+
 impl Transform {
-    fn to_matrix(self) -> glam::Mat4 {
+    fn to_obj_proj(self) -> glam::Mat4 {
         glam::Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.position)
+    }
+
+    fn to_normal_proj(self) -> glam::Mat3 {
+        glam::Mat3::from_quat(self.rotation)
     }
 }
 
@@ -69,9 +79,9 @@ impl Transform {
 impl encase::ShaderSize for Transform {}
 
 impl encase::ShaderType for Transform {
-    type ExtraMetadata = <glam::Mat4 as encase::ShaderType>::ExtraMetadata;
+    type ExtraMetadata = <Data as encase::ShaderType>::ExtraMetadata;
     const METADATA: encase::private::Metadata<Self::ExtraMetadata> =
-        <glam::Mat4 as encase::ShaderType>::METADATA;
+        <Data as encase::ShaderType>::METADATA;
 }
 
 impl encase::internal::WriteInto for Transform {
@@ -79,7 +89,14 @@ impl encase::internal::WriteInto for Transform {
     where
         B: encase::internal::BufferMut,
     {
-        self.to_matrix().write_into(writer)
+        let obj_proj = self.to_obj_proj();
+        let normal_proj = self.to_normal_proj();
+        let data = Data {
+            obj_proj,
+            normal_proj,
+        };
+        println!("{data:#?}");
+        data.write_into(writer)
     }
 }
 
