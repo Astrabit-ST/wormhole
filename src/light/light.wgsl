@@ -37,7 +37,7 @@ struct Light {
     position: vec3<f32>,
     color: vec3<f32>,
 }
-const light: Light = Light(vec3<f32>(0.0, 2.0, 0.0), vec3<f32>(0.6, 0.65, 1.0));
+const light: Light = Light(vec3<f32>(3.0, 3.0, 3.0), vec3<f32>(0.6, 0.65, 1.0));
 
 // Fragment shader
 

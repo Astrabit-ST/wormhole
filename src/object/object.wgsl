@@ -47,14 +47,18 @@ fn vs_main(
 
     let transform = transforms[constants.transform_index];
 
+    let world_position = transform.obj_proj * vec4<f32>(model.position, 1.0);
+
     out.tex_coords = model.tex_coords;
 
-    out.position = (transform.obj_proj * vec4<f32>(model.position, 1.0)).xyz;
-    out.clip_position = camera.view_proj * transform.obj_proj * vec4<f32>(model.position, 1.0);
+    out.position = world_position.xyz;
+    out.clip_position = camera.view_proj * world_position;
 
-    out.world_normal = normalize(transform.normal_proj * vec4<f32>(model.normal, 1.0)).xyz;
-    out.world_tangent = normalize(transform.normal_proj * vec4<f32>(model.tangent, 1.0)).xyz;
-    out.world_bitangent = normalize(transform.normal_proj * vec4<f32>(model.bitangent, 1.0)).xyz;
+    let normal_matrix = mat3x3<f32>(transform.normal_proj[0].xyz, transform.normal_proj[1].xyz, transform.normal_proj[2].xyz);
+
+    out.world_normal = normalize(normal_matrix * model.normal);
+    out.world_tangent = normalize(normal_matrix * model.tangent);
+    out.world_bitangent = normalize(normal_matrix * model.bitangent);
 
     return out;
 }
@@ -88,7 +92,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     );
 
     var normal_rgb = textureSample(t_normal, s_normal, in.tex_coords).xyz;
-    normal_rgb = normalize(normal_rgb * 2.0 - 1.0);
+    let normal_map = normal_rgb * 2.0 - 1.0;
     let normal = normalize(tangent_matrix * normal_rgb);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);

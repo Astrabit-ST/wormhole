@@ -26,6 +26,8 @@ pub struct Object {
     pub transform: render::Transform,
     pub mesh: render::Mesh,
     pub textures: textures::Textures,
+
+    time: f32,
 }
 
 pub struct Prepared<'obj> {
@@ -39,7 +41,7 @@ impl Object {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let transform = render::Transform::new();
         // let transform =
-        //     render::Transform::from_xyz((i % 20 - 10) as f32 * 2., 0.0, (i / 20 - 10) as f32 * 2.);
+        // render::Transform::from_xyz((i % 20 - 10) as f32 * 2., 0.0, (i / 20 - 10) as f32 * 2.);
 
         let (_, models) = assets.models.load("assets/meshes/cube.obj");
         let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
@@ -61,11 +63,17 @@ impl Object {
             transform,
             mesh,
             textures,
+
+            time: 0.0,
         }
     }
 
     pub fn update(&mut self, dt: f32) {
-        self.transform.rotation *= glam::Quat::from_euler(glam::EulerRot::XYZ, 0.0, 1.0 * dt, 0.0);
+        self.time += dt;
+        self.transform.position.x = self.time.sin() * 5.;
+        self.transform.position.z = self.time.cos() * 5.;
+        // self.transform.rotation *=
+        // glam::Quat::from_euler(glam::EulerRot::XYZ, 0.5 * dt, 1.0 * dt, 0.25 * dt);
     }
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
