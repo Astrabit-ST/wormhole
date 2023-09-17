@@ -18,6 +18,7 @@ use crate::assets;
 use crate::input;
 use crate::render;
 
+use crate::light;
 use crate::object;
 
 use itertools::Itertools;
@@ -26,6 +27,7 @@ use std::time::Instant;
 pub struct Scene {
     camera: render::Camera,
     objects: Vec<object::Object>,
+    lights: Vec<light::Light>,
 
     buffers: Buffers,
 
@@ -38,10 +40,6 @@ pub struct Buffers {
     mesh: render::buffer::mesh::Buffer,
 
     geometry: render::buffer::geometry::Buffer,
-
-    // Temporary hack before I add in a decent light system.
-    // Just for testing
-    light_temporary_hack: render::Mesh,
 }
 
 pub struct PrepareResources<'buf> {
@@ -65,6 +63,7 @@ impl Scene {
         //  .map(|i| object::Object::new(render_state, assets, i))
         //  .collect_vec();
         let objects = vec![object::Object::new(render_state, assets)];
+        let lights = (0..20).map(|_| light::Light::new(assets)).collect_vec();
 
         let transform_buffer =
             render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
@@ -77,43 +76,12 @@ impl Scene {
 
         let gbuffer = render::buffer::geometry::Buffer::new(render_state);
 
-        let light_temporary_hack = render::Mesh::new(
-            &[
-                render::Vertex {
-                    position: glam::vec3(-1.0, 1.0, 0.0),
-                    tex_coords: glam::vec2(0.0, 0.0),
-                    ..Default::default()
-                },
-                render::Vertex {
-                    position: glam::vec3(1.0, 1.0, 0.0),
-                    tex_coords: glam::vec2(1.0, 0.0),
-                    ..Default::default()
-                },
-                render::Vertex {
-                    position: glam::vec3(1.0, -1.0, 0.0),
-                    tex_coords: glam::vec2(1.0, 1.0),
-                    ..Default::default()
-                },
-                render::Vertex {
-                    position: glam::vec3(-1.0, -1.0, 0.0),
-                    tex_coords: glam::vec2(0.0, 1.0),
-                    ..Default::default()
-                },
-            ],
-            &[
-                2, 1, 0, //
-                2, 0, 3,
-            ],
-        );
-
         let buffers = Buffers {
             transform: transform_buffer,
             camera: camera_buffer,
             mesh: mesh_buffer,
 
             geometry: gbuffer,
-
-            light_temporary_hack,
         };
 
         let last_update = Instant::now();
@@ -121,6 +89,7 @@ impl Scene {
         Self {
             camera,
             objects,
+            lights,
 
             buffers,
 
@@ -170,7 +139,18 @@ impl Scene {
             .iter()
             .map(|o| o.prepare(&mut resources))
             .collect_vec();
-        let prepared_light_hack = self.buffers.light_temporary_hack.prepare(&mut resources);
+
+        let prepared_lights = self
+            .lights
+            .iter()
+            .map(|l| l.prepare_light(&mut resources))
+            .collect_vec();
+
+        let prepared_light_objects = self
+            .lights
+            .iter()
+            .map(|l| l.prepare_object(&mut resources))
+            .collect_vec();
 
         resources
             .camera
@@ -184,7 +164,9 @@ impl Scene {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("wormhole deferred render pass"),
             color_attachments: &self.buffers.geometry.as_color_attachments(),
-            depth_stencil_attachment: self.buffers.geometry.depth_stencil_attachment(),
+            depth_stencil_attachment: Some(
+                self.buffers.geometry.depth_stencil_attachment_initial(),
+            ),
         });
 
         let (vertex_buffer, index_buffer) = resources.mesh.finish(render_state);
@@ -199,6 +181,7 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.object);
         render_pass.set_bind_group(0, render_resources.camera, &[]);
+        render_pass.set_bind_group(1, render_resources.transform, &[]);
         for prepared in prepared_objects {
             prepared.draw(&render_resources, &mut render_pass);
         }
@@ -239,8 +222,33 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.light);
         render_pass.set_bind_group(0, render_resources.camera, &[]);
-        render_pass.set_bind_group(1, &self.buffers.geometry.bind_group, &[]);
-        prepared_light_hack.draw(&render_resources, &mut render_pass);
+        render_pass.set_bind_group(1, render_resources.transform, &[]);
+        render_pass.set_bind_group(2, &self.buffers.geometry.bind_group, &[]);
+        for light in prepared_lights {
+            light.draw(&render_resources, &mut render_pass);
+        }
+
+        drop(render_pass);
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("wormhole light box pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &output_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(self.buffers.geometry.depth_stencil_attachment()),
+        });
+
+        render_pass.set_pipeline(&render_state.pipelines.light_object);
+        render_pass.set_bind_group(0, render_resources.camera, &[]);
+        render_pass.set_bind_group(1, render_resources.transform, &[]);
+        for light in prepared_light_objects {
+            light.draw(&render_resources, &mut render_pass);
+        }
 
         drop(render_pass);
 

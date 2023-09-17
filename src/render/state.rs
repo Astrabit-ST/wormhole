@@ -52,6 +52,7 @@ pub struct BindGroups {
 pub struct RenderPipelines {
     pub object: wgpu::RenderPipeline,
     pub light: wgpu::RenderPipeline,
+    pub light_object: wgpu::RenderPipeline,
 }
 
 impl GpuCreated {
@@ -83,10 +84,10 @@ impl GpuCreated {
                 &wgpu::DeviceDescriptor {
                     label: Some("wgpu device"),
                     limits: wgpu::Limits {
-                        max_push_constant_size: 4,
+                        max_push_constant_size: 128,
                         ..Default::default()
                     },
-                    features: wgpu::Features::default() | wgpu::Features::PUSH_CONSTANTS,
+                    features: wgpu::Features::PUSH_CONSTANTS,
                 },
                 None,
             )
@@ -149,15 +150,18 @@ impl BindGroupsCreated {
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
     pub fn initialize_render_pipelines(self) -> State {
-        use render::traits::Shadeable;
-
         let object = object::Object::create_render_pipeline(&self);
-        let light = light::Light::create_render_pipeline(&self);
+        let light = light::Light::create_light_render_pipeline(&self);
+        let light_object = light::Light::create_light_object_render_pipeline(&self);
 
         State {
             wgpu: self.wgpu,
             bind_groups: self.bind_groups,
-            pipelines: RenderPipelines { object, light },
+            pipelines: RenderPipelines {
+                object,
+                light,
+                light_object,
+            },
         }
     }
 }

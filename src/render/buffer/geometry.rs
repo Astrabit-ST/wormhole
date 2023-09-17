@@ -151,15 +151,26 @@ impl Buffer {
         ]
     }
 
-    pub fn depth_stencil_attachment(&self) -> Option<wgpu::RenderPassDepthStencilAttachment<'_>> {
-        Some(wgpu::RenderPassDepthStencilAttachment {
+    pub fn depth_stencil_attachment_initial(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+        wgpu::RenderPassDepthStencilAttachment {
             view: &self.depth.view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Clear(1.0),
                 store: true,
             }),
             stencil_ops: None,
-        })
+        }
+    }
+
+    pub fn depth_stencil_attachment(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+        wgpu::RenderPassDepthStencilAttachment {
+            view: &self.depth.view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Load,
+                store: true,
+            }),
+            stencil_ops: None,
+        }
     }
 }
 

@@ -67,6 +67,14 @@ impl Transform {
         }
     }
 
+    pub fn from_position_scale(position: glam::Vec3, scale: glam::Vec3) -> Self {
+        Self {
+            position,
+            rotation: glam::Quat::IDENTITY,
+            scale,
+        }
+    }
+
     pub fn from_position_rotation(position: glam::Vec3, rotation: glam::Quat) -> Self {
         Self {
             position,
@@ -111,7 +119,7 @@ impl render::traits::Bindable for Transform {
             label: Some("transform bind group layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::FRAGMENT),
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,

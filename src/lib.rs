@@ -60,6 +60,9 @@ pub mod render {
         pub mod geometry;
     }
 
+    mod color;
+    pub use color::Color;
+
     pub mod state;
     pub use state::State;
 

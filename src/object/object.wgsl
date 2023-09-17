@@ -21,6 +21,7 @@ struct VertexOutput {
 };
 
 struct Camera {
+    viewport_size: vec2<f32>,
     view_pos: vec4<f32>,
     view_proj: mat4x4<f32>,
 }
@@ -96,7 +97,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let normal = normalize(tangent_matrix * normal_rgb);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    out.normal = vec4<f32>(in.world_normal, 0.0);
+    out.normal = vec4<f32>(normal, 0.0);
     out.position = vec4<f32>(in.position, 0.0);
 
     return out;

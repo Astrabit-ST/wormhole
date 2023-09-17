@@ -22,10 +22,12 @@ use winit::event::VirtualKeyCode;
 pub struct Camera {
     projection: Projection,
     transform: Transform,
+    viewport_size: glam::Vec2,
 }
 
 #[derive(encase::ShaderType)]
 pub struct Data {
+    viewport_size: glam::Vec2,
     view_pos: glam::Vec4,
     view_proj: glam::Mat4,
 }
@@ -72,10 +74,10 @@ impl Projection {
 impl Camera {
     pub fn new(render_state: &render::State) -> Self {
         let transform = Transform {
-            position: glam::Vec3::new(3.0, 4.0, 5.0),
+            position: glam::Vec3::new(0.0, 9.0, 0.0),
 
-            yaw: -2.0,
-            pitch: -0.66,
+            yaw: 0.0,
+            pitch: -90_f32.to_radians(),
         };
         let projection = Projection {
             aspect: render_state.wgpu.surface_config.width as f32
@@ -84,10 +86,15 @@ impl Camera {
             znear: 0.1,
             zfar: 100.0,
         };
+        let viewport_size = glam::vec2(
+            render_state.wgpu.surface_config.width as f32,
+            render_state.wgpu.surface_config.height as f32,
+        );
 
         Camera {
             projection,
             transform,
+            viewport_size,
         }
     }
 
@@ -139,6 +146,7 @@ impl Camera {
 
         if let Some(size) = input.new_window_size() {
             self.projection.aspect = size.width as f32 / size.height as f32;
+            self.viewport_size = glam::vec2(size.width as f32, size.height as f32);
         }
 
         // Keep the camera's angle from going too high/low.
@@ -167,6 +175,7 @@ impl encase::internal::WriteInto for Camera {
             self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
         let view_pos = glam::Vec4::from((self.transform.position, 1.0));
         Data {
+            viewport_size: self.viewport_size,
             view_pos,
             view_proj,
         }

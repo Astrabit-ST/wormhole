@@ -34,9 +34,3 @@ pub trait DynamicBufferWriteable:
 {
     const ALIGN: u64 = 32;
 }
-
-pub trait Shadeable {
-    fn create_render_pipeline(
-        render_state: &render::state::BindGroupsCreated,
-    ) -> wgpu::RenderPipeline;
-}

@@ -16,8 +16,8 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
 
-impl render::traits::Shadeable for super::Object {
-    fn create_render_pipeline(
+impl super::Object {
+    pub fn create_render_pipeline(
         render_state: &render::state::BindGroupsCreated,
     ) -> wgpu::RenderPipeline {
         let layout =

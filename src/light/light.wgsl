@@ -1,5 +1,44 @@
-// Vertex shader
+struct Constants {
+    transform_index: i32,
 
+    intensity: f32,
+    range: f32,
+    color: vec4<f32>,
+    position: vec3<f32>,
+}
+var<push_constant> constants: Constants;
+
+struct Camera {
+    viewport_size: vec2<f32>,
+    view_pos: vec4<f32>,
+    view_proj: mat4x4<f32>,
+}
+@group(0) @binding(0)
+var<uniform> camera: Camera;
+
+struct Transform {
+    obj_proj: mat4x4<f32>,
+    normal_proj: mat4x4<f32>,
+}
+@group(1) @binding(0)
+var<storage> transforms: array<Transform>;
+
+@group(2) @binding(0)
+var g_albedo: texture_2d<f32>;
+@group(2) @binding(1)
+var s_albedo: sampler;
+
+@group(2) @binding(2)
+var g_normal: texture_2d<f32>;
+@group(2) @binding(3)
+var s_normal: sampler;
+
+@group(2) @binding(4)
+var g_position: texture_2d<f32>;
+@group(2) @binding(5)
+var s_position: sampler;
+
+// Vertex shader
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
@@ -11,7 +50,6 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(1) tex_coords: vec2<f32>,
 };
 
 @vertex
@@ -20,63 +58,47 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    out.clip_position = vec4<f32>(model.position, 1.0);
-    out.tex_coords = model.tex_coords;
+    let transform = transforms[constants.transform_index];
+
+    let world_position = transform.obj_proj * vec4<f32>(model.position, 1.0);
+
+    out.clip_position = camera.view_proj * world_position;
 
     return out;
 }
 
-struct Camera {
-    view_pos: vec4<f32>,
-    view_proj: mat4x4<f32>,
-}
-@group(0) @binding(0)
-var<uniform> camera: Camera;
-
-struct Light {
-    position: vec3<f32>,
-    color: vec3<f32>,
-}
-const light: Light = Light(vec3<f32>(3.0, 3.0, 3.0), vec3<f32>(0.6, 0.65, 1.0));
-
 // Fragment shader
-
-@group(1) @binding(0)
-var g_albedo: texture_2d<f32>;
-@group(1) @binding(1)
-var s_albedo: sampler;
-
-@group(1) @binding(2)
-var g_normal: texture_2d<f32>;
-@group(1) @binding(3)
-var s_normal: sampler;
-
-@group(1) @binding(4)
-var g_position: texture_2d<f32>;
-@group(1) @binding(5)
-var s_position: sampler;
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+}
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let frag_pos = textureSample(g_position, s_position, in.tex_coords).rgb;
-    let normal = textureSample(g_normal, s_normal, in.tex_coords).rgb;
-    let albedo = textureSample(g_albedo, s_albedo, in.tex_coords).rgb;
+fn fs_main(in: VertexOutput) -> FragmentOutput {
+    var out: FragmentOutput;
+
+    let screen_coord = in.clip_position.xy / camera.viewport_size;
+
+    let frag_pos = textureSample(g_position, s_position, screen_coord).rgb;
+    let normal = textureSample(g_normal, s_normal, screen_coord).rgb;
+    let albedo = textureSample(g_albedo, s_albedo, screen_coord).rgb;
 
     let ambient_strength = 0.01;
-    let ambient_color = light.color * ambient_strength;
+    let ambient_color = constants.color.rgb * ambient_strength;
 
-    let light_dir = normalize(light.position - frag_pos);
+    let light_dir = normalize(constants.position - frag_pos);
 
     let diffuse_strength = max(dot(normal, light_dir), 0.0);
-    let diffuse_color = light.color * diffuse_strength;
+    let diffuse_color = constants.color.rgb * diffuse_strength;
 
     let view_dir = normalize(camera.view_pos.xyz - frag_pos);
     let half_dir = normalize(view_dir + light_dir);
 
     let specular_strength = pow(max(dot(normal, half_dir), 0.0), 32.0);
-    let specular_color = specular_strength * light.color;
+    let specular_color = specular_strength * constants.color.rgb;
 
     let result = (ambient_color + diffuse_color + specular_color) * albedo.xyz;
 
-    return vec4<f32>(result, 1.0);
+    out.color = vec4<f32>(result, 1.0);
+
+    return out;
 }

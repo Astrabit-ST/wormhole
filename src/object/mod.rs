@@ -72,8 +72,8 @@ impl Object {
         self.time += dt;
         self.transform.position.x = self.time.sin() * 5.;
         self.transform.position.z = self.time.cos() * 5.;
-        // self.transform.rotation *=
-        // glam::Quat::from_euler(glam::EulerRot::XYZ, 0.5 * dt, 1.0 * dt, 0.25 * dt);
+
+        self.transform.rotation *= glam::Quat::from_euler(glam::EulerRot::XYZ, 0., 2.0 * dt, 0.);
     }
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
@@ -96,8 +96,6 @@ impl<'obj> Prepared<'obj> {
         render_pass.push_debug_group("wormhole object draw");
 
         {
-            render_pass.set_bind_group(1, resources.transform, &[]);
-
             render_pass.set_push_constants(
                 wgpu::ShaderStages::VERTEX,
                 0,
