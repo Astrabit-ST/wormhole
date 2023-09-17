@@ -26,9 +26,13 @@ pub struct Light {
     transform: render::Transform,
     mesh: render::Mesh,
 
-    intensity: f32,
-    range: f32,
-    color: render::Color,
+    constant: f32,
+    linear: f32,
+    quadratic: f32,
+
+    ambient: render::Color,
+    diffuse: render::Color,
+    specular: render::Color,
 }
 
 #[repr(u8)]
@@ -40,7 +44,6 @@ pub struct PreparedObject {
     mesh: render::PreparedMesh,
     transform_index: i32,
 
-    intensity: f32,
     color: render::Color,
 }
 
@@ -48,10 +51,13 @@ pub struct PreparedLight {
     mesh: render::PreparedMesh,
     transform_index: i32,
 
-    intensity: f32,
-    range: f32,
+    constant: f32,
+    linear: f32,
+    quadratic: f32,
 
-    color: render::Color,
+    ambient: render::Color,
+    diffuse: render::Color,
+    specular: render::Color,
     position: glam::Vec3,
 }
 
@@ -60,70 +66,95 @@ impl Light {
         let mut rng = rand::thread_rng();
         let transform = render::Transform::from_position_scale(
             glam::vec3(
-                rng.gen_range(-10_f32..10_f32),
-                rng.gen_range(-10_f32..10_f32),
-                rng.gen_range(-10_f32..10_f32),
+                rng.gen_range(-20_f32..20_f32),
+                rng.gen_range(-20_f32..20_f32),
+                rng.gen_range(-20_f32..20_f32),
             ),
             glam::Vec3::splat(0.1),
         );
+        // let transform = render::Transform::from_position(glam::vec3(0.0, 5.0, 0.0));
 
         let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
         let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
 
-        let intensity = 1.0;
-        let range = 15.0;
-        let color = render::Color::from_rgb_normalized(glam::vec3(0.6, 0.65, 1.0));
+        let constant = 1.0;
+        let linear = 0.35;
+        let quadratic = 0.44;
+
+        let ambient = render::Color::from_rgb_normalized(glam::vec3(0.01, 0.01, 0.01));
+        let diffuse = render::Color::from_rgb_normalized(glam::vec3(0.6, 0.65, 1.0));
+        let specular = render::Color::from_rgb_normalized(glam::vec3(0.5, 0.5, 0.5));
 
         Light {
             transform,
             mesh,
 
-            range,
-            intensity,
-            color,
+            constant,
+            linear,
+            quadratic,
+
+            ambient,
+            diffuse,
+            specular,
         }
     }
 
     pub fn update(&mut self, _dt: f32) {}
 
     pub fn prepare_object(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedObject {
-        let transform_index = resources.transform.push(&self.transform) as i32;
+        let transform = render::Transform {
+            scale: glam::Vec3::splat(0.1),
+            ..self.transform
+        };
+        let transform_index = resources.transform.push(&transform) as i32;
         let mesh = self.mesh.prepare(resources);
 
-        let intensity = self.intensity;
-        let color = self.color;
+        let color = self.diffuse;
 
         PreparedObject {
             mesh,
             transform_index,
 
-            intensity,
             color,
         }
     }
 
     pub fn prepare_light(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedLight {
+        let light_max = self.diffuse.color.max_element();
+        let radius = (-self.linear
+            + (self.linear.powi(2)
+                - 4. * self.quadratic * (self.constant - (256. / 5.) * light_max))
+                .sqrt())
+            / (2. * self.quadratic);
         let transform = render::Transform {
-            scale: glam::Vec3::splat(self.range),
+            scale: glam::Vec3::splat(radius * 2.),
             ..self.transform
         };
 
         let transform_index = resources.transform.push(&transform) as i32;
         let mesh = self.mesh.prepare(resources);
 
-        let intensity = self.intensity;
-        let range = self.range;
-        let color = self.color;
+        let constant = self.constant;
+        let linear = self.linear;
+        let quadratic = self.quadratic;
+
+        let ambient = self.ambient;
+        let diffuse = self.diffuse;
+        let specular = self.specular;
         let position = self.transform.position;
 
         PreparedLight {
             mesh,
             transform_index,
 
-            intensity,
-            range,
+            constant,
+            linear,
+            quadratic,
 
-            color,
+            ambient,
+            diffuse,
+            specular,
+
             position,
         }
     }
@@ -140,16 +171,14 @@ impl PreparedObject {
         #[derive(bytemuck::Pod, bytemuck::Zeroable)]
         struct PushConstants {
             transform_index: i32,
-            _pad: [u8; 8],
+            _pad: [u8; 12],
 
-            intensity: f32,
             color: render::Color,
         }
         let push_constants = PushConstants {
             transform_index: self.transform_index,
-            _pad: [0; 8],
+            _pad: [0; 12],
 
-            intensity: self.intensity,
             color: self.color,
         };
         let push_constants_bytes = bytemuck::bytes_of(&push_constants);
@@ -187,24 +216,30 @@ impl PreparedLight {
         struct PushConstants {
             transform_index: i32,
 
-            intensity: f32,
-            range: f32,
+            constant: f32,
+            linear: f32,
+            quadratic: f32,
 
-            _pad: [u8; 4],
-            color: render::Color,
+            ambient: render::Color,
+            diffuse: render::Color,
+            specular: render::Color,
+
             position: glam::Vec3,
-            _pad2: [u8; 4],
+            _pad: [u8; 4],
         }
         let push_constants = PushConstants {
             transform_index: self.transform_index,
 
-            intensity: self.intensity,
-            range: self.range,
+            constant: self.constant,
+            linear: self.linear,
+            quadratic: self.quadratic,
 
-            _pad: [0; 4],
-            color: self.color,
+            ambient: self.ambient,
+            diffuse: self.diffuse,
+            specular: self.specular,
+
             position: self.position,
-            _pad2: [0; 4],
+            _pad: [0; 4],
         };
         let push_constants_bytes = bytemuck::bytes_of(&push_constants);
 

@@ -1,9 +1,14 @@
 struct Constants {
     transform_index: i32,
 
-    intensity: f32,
-    range: f32,
-    color: vec4<f32>,
+    constant: f32,
+    linear: f32,
+    quadratic: f32,
+
+    ambient: vec4<f32>,
+    diffuse: vec4<f32>,
+    specular: vec4<f32>,
+
     position: vec3<f32>,
 }
 var<push_constant> constants: Constants;
@@ -82,22 +87,25 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let normal = textureSample(g_normal, s_normal, screen_coord).rgb;
     let albedo = textureSample(g_albedo, s_albedo, screen_coord).rgb;
 
-    let ambient_strength = 0.01;
-    let ambient_color = constants.color.rgb * ambient_strength;
+    let ambient = constants.ambient.rgb * albedo;
 
     let light_dir = normalize(constants.position - frag_pos);
-
     let diffuse_strength = max(dot(normal, light_dir), 0.0);
-    let diffuse_color = constants.color.rgb * diffuse_strength;
+    let diffuse = constants.diffuse.rgb * diffuse_strength * albedo;
 
     let view_dir = normalize(camera.view_pos.xyz - frag_pos);
     let half_dir = normalize(view_dir + light_dir);
-
     let specular_strength = pow(max(dot(normal, half_dir), 0.0), 32.0);
-    let specular_color = specular_strength * constants.color.rgb;
+    let specular = constants.specular.rgb * specular_strength;
 
-    let result = (ambient_color + diffuse_color + specular_color) * albedo.xyz;
+    let distance = length(constants.position - frag_pos);
+    let attenuation = 1.0 / (constants.constant + constants.linear * distance + constants.quadratic * (distance * distance));
 
+    let ambient_color = ambient * attenuation;
+    let diffuse_color = diffuse * attenuation;
+    let specular_color = specular * attenuation;
+
+    let result = ambient_color + diffuse_color + specular_color;
     out.color = vec4<f32>(result, 1.0);
 
     return out;

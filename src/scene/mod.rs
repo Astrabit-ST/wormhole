@@ -59,11 +59,12 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        // let objects = (0..400)
-        //  .map(|i| object::Object::new(render_state, assets, i))
-        //  .collect_vec();
-        let objects = vec![object::Object::new(render_state, assets)];
-        let lights = (0..20).map(|_| light::Light::new(assets)).collect_vec();
+        let objects = (0..400)
+            .map(|i| object::Object::new(render_state, assets, i))
+            .collect_vec();
+        let lights = (0..200).map(|_| light::Light::new(assets)).collect_vec();
+        // let objects = vec![object::Object::new(render_state, assets)];
+        // let lights = vec![light::Light::new(assets)];
 
         let transform_buffer =
             render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());

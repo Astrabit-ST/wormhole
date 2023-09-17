@@ -1,7 +1,6 @@
 struct Constants {
     transform_index: i32,
 
-    intensity: f32,
     color: vec4<f32>,
 }
 var<push_constant> constants: Constants;
