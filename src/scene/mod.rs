@@ -35,21 +35,25 @@ pub struct Scene {
 }
 
 pub struct Buffers {
-    transform: render::buffer::dynamic::Buffer<render::Transform>,
+    transforms: render::buffer::dynamic::Buffer<render::Transform>,
+    lights: render::buffer::dynamic::Buffer<light::PreparedLight>,
     camera: render::buffer::single::Buffer<render::Camera>,
     mesh: render::buffer::mesh::Buffer,
 
     geometry: render::buffer::geometry::Buffer,
+    screen_vertices: wgpu::Buffer,
 }
 
 pub struct PrepareResources<'buf> {
-    pub transform: render::buffer::dynamic::Writer<'buf, render::Transform>,
+    pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
+    pub lights: render::buffer::dynamic::Writer<'buf, light::PreparedLight>,
     pub camera: render::buffer::single::Writer<'buf, render::Camera>,
     pub mesh: render::buffer::mesh::Writer<'buf>,
 }
 
 pub struct RenderResources<'res> {
     pub transform: &'res wgpu::BindGroup,
+    pub lights: &'res wgpu::BindGroup,
     pub camera: &'res wgpu::BindGroup,
 
     pub vertices: &'res wgpu::Buffer,
@@ -59,14 +63,17 @@ pub struct RenderResources<'res> {
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        let objects = (0..400)
-            .map(|i| object::Object::new(render_state, assets, i))
-            .collect_vec();
-        let lights = (0..200).map(|_| light::Light::new(assets)).collect_vec();
-        // let objects = vec![object::Object::new(render_state, assets)];
-        // let lights = vec![light::Light::new(assets)];
+        // let objects = (0..400)
+        //     .map(|i| object::Object::new(render_state, assets, i))
+        //     .collect_vec();
+        // let lights = (0..200).map(|_| light::Light::new(assets)).collect_vec();
+        let objects = vec![object::Object::new(render_state, assets)];
+        let lights = vec![light::Light::new(assets)];
 
         let transform_buffer =
+            render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
+
+        let light_buffer =
             render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
         let camera_buffer =
@@ -77,12 +84,16 @@ impl Scene {
 
         let gbuffer = render::buffer::geometry::Buffer::new(render_state);
 
+        let screen_vertices = Self::create_screen_vertex_buffer(render_state);
+
         let buffers = Buffers {
-            transform: transform_buffer,
+            transforms: transform_buffer,
+            lights: light_buffer,
             camera: camera_buffer,
             mesh: mesh_buffer,
 
             geometry: gbuffer,
+            screen_vertices,
         };
 
         let last_update = Instant::now();
@@ -130,7 +141,8 @@ impl Scene {
         encoder.push_debug_group("Scene prep");
 
         let mut resources = PrepareResources {
-            transform: self.buffers.transform.start_write(),
+            transforms: self.buffers.transforms.start_write(),
+            lights: self.buffers.lights.start_write(),
             camera: self.buffers.camera.start_write(),
             mesh: self.buffers.mesh.start_write(),
         };
@@ -141,11 +153,9 @@ impl Scene {
             .map(|o| o.prepare(&mut resources))
             .collect_vec();
 
-        let prepared_lights = self
-            .lights
+        self.lights
             .iter()
-            .map(|l| l.prepare_light(&mut resources))
-            .collect_vec();
+            .for_each(|l| l.prepare_light(&mut resources));
 
         let prepared_light_objects = self
             .lights
@@ -173,7 +183,8 @@ impl Scene {
         let (vertex_buffer, index_buffer) = resources.mesh.finish(render_state);
 
         let render_resources = RenderResources {
-            transform: resources.transform.finish(render_state),
+            transform: resources.transforms.finish(render_state),
+            lights: resources.lights.finish(render_state),
             camera: resources.camera.finish(render_state),
 
             vertices: vertex_buffer,
@@ -222,12 +233,20 @@ impl Scene {
         });
 
         render_pass.set_pipeline(&render_state.pipelines.light);
+
+        render_pass.set_vertex_buffer(0, self.buffers.screen_vertices.slice(..));
+
         render_pass.set_bind_group(0, render_resources.camera, &[]);
-        render_pass.set_bind_group(1, render_resources.transform, &[]);
+        render_pass.set_bind_group(1, render_resources.lights, &[]);
         render_pass.set_bind_group(2, &self.buffers.geometry.bind_group, &[]);
-        for light in prepared_lights {
-            light.draw(&render_resources, &mut render_pass);
-        }
+
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::FRAGMENT,
+            0,
+            bytemuck::bytes_of(&(self.lights.len() as u32)),
+        );
+
+        render_pass.draw(0..6, 0..1);
 
         drop(render_pass);
 
@@ -261,5 +280,57 @@ impl Scene {
             .submit(std::iter::once(encoder.finish()));
 
         output.present();
+    }
+
+    fn create_screen_vertex_buffer(render_state: &render::State) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+
+        let screen_mesh = &[
+            // 2
+            render::Vertex {
+                position: glam::vec3(1.0, -1.0, 0.0),
+                tex_coords: glam::vec2(1.0, 1.0),
+                ..Default::default()
+            },
+            // 1
+            render::Vertex {
+                position: glam::vec3(1.0, 1.0, 0.0),
+                tex_coords: glam::vec2(1.0, 0.0),
+                ..Default::default()
+            },
+            // 0
+            render::Vertex {
+                position: glam::vec3(-1.0, 1.0, 0.0),
+                tex_coords: glam::vec2(0.0, 0.0),
+                ..Default::default()
+            },
+            // 2
+            render::Vertex {
+                position: glam::vec3(1.0, -1.0, 0.0),
+                tex_coords: glam::vec2(1.0, 1.0),
+                ..Default::default()
+            },
+            // 0
+            render::Vertex {
+                position: glam::vec3(-1.0, 1.0, 0.0),
+                tex_coords: glam::vec2(0.0, 0.0),
+                ..Default::default()
+            },
+            // 3
+            render::Vertex {
+                position: glam::vec3(-1.0, -1.0, 0.0),
+                tex_coords: glam::vec2(0.0, 1.0),
+                ..Default::default()
+            },
+        ];
+
+        render_state
+            .wgpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wormhole screen vertex buffer"),
+                contents: bytemuck::cast_slice(screen_mesh),
+                usage: wgpu::BufferUsages::VERTEX,
+            })
     }
 }

@@ -45,6 +45,7 @@ pub struct GpuState {
 pub struct BindGroups {
     pub camera: wgpu::BindGroupLayout,
     pub transform: wgpu::BindGroupLayout,
+    pub light: wgpu::BindGroupLayout,
     pub object_textures: wgpu::BindGroupLayout,
     pub gbuffer: wgpu::BindGroupLayout,
 }
@@ -131,6 +132,7 @@ impl GpuCreated {
 
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
+        let light = light::PreparedLight::create_bind_group_layout(&self);
         let object_textures = object::Textures::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
 
@@ -139,6 +141,7 @@ impl GpuCreated {
             bind_groups: BindGroups {
                 camera,
                 transform,
+                light,
                 object_textures,
                 gbuffer,
             },

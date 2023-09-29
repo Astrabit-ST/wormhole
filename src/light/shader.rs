@@ -103,19 +103,13 @@ impl super::Light {
                     label: Some("lighting render pipeline layout"),
                     bind_group_layouts: &[
                         &render_state.bind_groups.camera,
-                        &render_state.bind_groups.transform,
+                        &render_state.bind_groups.light,
                         &render_state.bind_groups.gbuffer,
                     ],
-                    push_constant_ranges: &[
-                        wgpu::PushConstantRange {
-                            stages: wgpu::ShaderStages::VERTEX,
-                            range: 0..4,
-                        },
-                        wgpu::PushConstantRange {
-                            stages: wgpu::ShaderStages::FRAGMENT,
-                            range: 8..80,
-                        },
-                    ],
+                    push_constant_ranges: &[wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::FRAGMENT,
+                        range: 0..4,
+                    }],
                 });
 
         let shader = render_state
@@ -139,14 +133,7 @@ impl super::Light {
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: render_state.wgpu.surface_config.format,
-                        blend: Some(wgpu::BlendState {
-                            color: wgpu::BlendComponent {
-                                src_factor: wgpu::BlendFactor::One,
-                                dst_factor: wgpu::BlendFactor::One,
-                                operation: wgpu::BlendOperation::Add,
-                            },
-                            alpha: wgpu::BlendComponent::REPLACE,
-                        }),
+                        blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
@@ -154,7 +141,7 @@ impl super::Light {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Front),
+                    cull_mode: Some(wgpu::Face::Back),
                     polygon_mode: wgpu::PolygonMode::Fill,
                     unclipped_depth: false,
                     conservative: false,

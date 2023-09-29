@@ -18,6 +18,7 @@
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(encase::ShaderType)]
 pub struct Color {
     pub color: glam::Vec4,
 }

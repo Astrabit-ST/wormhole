@@ -47,10 +47,8 @@ pub struct PreparedObject {
     color: render::Color,
 }
 
+#[derive(encase::ShaderType)]
 pub struct PreparedLight {
-    mesh: render::PreparedMesh,
-    transform_index: i32,
-
     constant: f32,
     linear: f32,
     quadratic: f32,
@@ -58,21 +56,22 @@ pub struct PreparedLight {
     ambient: render::Color,
     diffuse: render::Color,
     specular: render::Color,
+
     position: glam::Vec3,
 }
 
 impl Light {
     pub fn new(assets: &mut assets::Loader) -> Self {
-        let mut rng = rand::thread_rng();
-        let transform = render::Transform::from_position_scale(
-            glam::vec3(
-                rng.gen_range(-20_f32..20_f32),
-                rng.gen_range(-20_f32..20_f32),
-                rng.gen_range(-20_f32..20_f32),
-            ),
-            glam::Vec3::splat(0.1),
-        );
-        // let transform = render::Transform::from_position(glam::vec3(0.0, 5.0, 0.0));
+        // let mut rng = rand::thread_rng();
+        // let transform = render::Transform::from_position_scale(
+        //     glam::vec3(
+        //         rng.gen_range(-20_f32..20_f32),
+        //         rng.gen_range(-20_f32..20_f32),
+        //         rng.gen_range(-20_f32..20_f32),
+        //     ),
+        //     glam::Vec3::splat(0.1),
+        // );
+        let transform = render::Transform::from_position(glam::vec3(0.0, 3.0, 0.0));
 
         let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
         let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
@@ -83,7 +82,7 @@ impl Light {
 
         let ambient = render::Color::from_rgb_normalized(glam::vec3(0.01, 0.01, 0.01));
         let diffuse = render::Color::from_rgb_normalized(glam::vec3(0.6, 0.65, 1.0));
-        let specular = render::Color::from_rgb_normalized(glam::vec3(0.5, 0.5, 0.5));
+        let specular = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
 
         Light {
             transform,
@@ -106,7 +105,7 @@ impl Light {
             scale: glam::Vec3::splat(0.1),
             ..self.transform
         };
-        let transform_index = resources.transform.push(&transform) as i32;
+        let transform_index = resources.transforms.push(&transform) as i32;
         let mesh = self.mesh.prepare(resources);
 
         let color = self.diffuse;
@@ -119,44 +118,17 @@ impl Light {
         }
     }
 
-    pub fn prepare_light(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedLight {
-        let light_max = self.diffuse.color.max_element();
-        let radius = (-self.linear
-            + (self.linear.powi(2)
-                - 4. * self.quadratic * (self.constant - (256. / 5.) * light_max))
-                .sqrt())
-            / (2. * self.quadratic);
-        let transform = render::Transform {
-            scale: glam::Vec3::splat(radius * 2.),
-            ..self.transform
+    pub fn prepare_light(&self, resources: &mut scene::PrepareResources<'_>) {
+        let prepared_light = PreparedLight {
+            constant: self.constant,
+            linear: self.linear,
+            quadratic: self.quadratic,
+            ambient: self.ambient,
+            diffuse: self.diffuse,
+            specular: self.specular,
+            position: self.transform.position,
         };
-
-        let transform_index = resources.transform.push(&transform) as i32;
-        let mesh = self.mesh.prepare(resources);
-
-        let constant = self.constant;
-        let linear = self.linear;
-        let quadratic = self.quadratic;
-
-        let ambient = self.ambient;
-        let diffuse = self.diffuse;
-        let specular = self.specular;
-        let position = self.transform.position;
-
-        PreparedLight {
-            mesh,
-            transform_index,
-
-            constant,
-            linear,
-            quadratic,
-
-            ambient,
-            diffuse,
-            specular,
-
-            position,
-        }
+        resources.lights.push(&prepared_light);
     }
 }
 
@@ -204,62 +176,25 @@ impl PreparedObject {
     }
 }
 
-impl PreparedLight {
-    pub fn draw<'rpass>(
-        self,
-        resources: &scene::RenderResources<'rpass>,
-        render_pass: &mut wgpu::RenderPass<'rpass>,
-    ) {
-        #[repr(C)]
-        #[derive(Clone, Copy)]
-        #[derive(bytemuck::Pod, bytemuck::Zeroable)]
-        struct PushConstants {
-            transform_index: i32,
-
-            constant: f32,
-            linear: f32,
-            quadratic: f32,
-
-            ambient: render::Color,
-            diffuse: render::Color,
-            specular: render::Color,
-
-            position: glam::Vec3,
-            _pad: [u8; 4],
-        }
-        let push_constants = PushConstants {
-            transform_index: self.transform_index,
-
-            constant: self.constant,
-            linear: self.linear,
-            quadratic: self.quadratic,
-
-            ambient: self.ambient,
-            diffuse: self.diffuse,
-            specular: self.specular,
-
-            position: self.position,
-            _pad: [0; 4],
+impl render::traits::Bindable for PreparedLight {
+    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("wormhole lights"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+            }],
         };
-        let push_constants_bytes = bytemuck::bytes_of(&push_constants);
 
-        render_pass.push_debug_group("wormhole light draw");
-
-        {
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                &push_constants_bytes[0..4],
-            );
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::FRAGMENT,
-                8,
-                &push_constants_bytes[8..],
-            );
-
-            self.mesh.draw(resources, render_pass);
-        }
-
-        render_pass.pop_debug_group();
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
+        &render_state.bind_groups.light
     }
 }
+
+impl render::traits::DynamicBufferWriteable for PreparedLight {}

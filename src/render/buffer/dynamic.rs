@@ -36,7 +36,7 @@ where
     T: render::traits::DynamicBufferWriteable,
 {
     pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
-        let buffer_size = wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN) * 256;
+        let buffer_size = T::SHADER_SIZE.get() * 32;
 
         let gpu_buffer = render_state
             .wgpu
