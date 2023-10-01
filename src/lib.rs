@@ -54,7 +54,6 @@ pub mod render {
     pub mod buffer {
         pub mod dynamic;
 
-        pub mod mesh;
         pub mod single;
 
         pub mod geometry;
@@ -79,11 +78,8 @@ pub mod render {
     mod vertex;
     pub use vertex::Vertex;
 
-    // TODO: add optimized static mesh that writes once?
-
-    mod mesh;
-    pub use mesh::Mesh;
-    pub use mesh::PreparedMesh;
+    mod model;
+    pub use model::Model;
 
     pub mod traits;
 }

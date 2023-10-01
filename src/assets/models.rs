@@ -15,9 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::render;
 
 pub struct Models {
-    models: slab::Slab<Vec<tobj::Model>>,
+    models: slab::Slab<Vec<Arc<render::Model>>>,
     ids: HashMap<camino::Utf8PathBuf, usize>,
 }
 
@@ -32,32 +35,24 @@ impl Models {
         }
     }
 
-    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> (Id, &[tobj::Model]) {
-        let path = path.as_ref();
-
-        let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
-            let (models, _) =
-                tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS).expect("failed to load models");
-
-            self.models.insert(models)
-        });
-        let models = self
-            .models
-            .get(*id)
-            .expect("asset not existent despite being loaded");
-
-        (Id(*id), models)
+    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> (Id, &[Arc<render::Model>]) {
+        self.load_with_options(path, &tobj::GPU_LOAD_OPTIONS)
     }
 
     pub fn load_with_options(
         &mut self,
         path: impl AsRef<camino::Utf8Path>,
         load_options: &tobj::LoadOptions,
-    ) -> (Id, &[tobj::Model]) {
+    ) -> (Id, &[Arc<render::Model>]) {
         let path = path.as_ref();
 
         let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
             let (models, _) = tobj::load_obj(path, load_options).expect("failed to load models");
+            let models = models
+                .into_iter()
+                .map(render::Model::from_tobj_model)
+                .map(Arc::new)
+                .collect();
 
             self.models.insert(models)
         });
@@ -69,11 +64,11 @@ impl Models {
         (Id(*id), models)
     }
 
-    pub fn get_expect(&self, id: Id) -> &[tobj::Model] {
+    pub fn get_expect(&self, id: Id) -> &[Arc<render::Model>] {
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&[tobj::Model]> {
+    pub fn get(&self, id: Id) -> Option<&[Arc<render::Model>]> {
         self.models.get(id.0).map(Vec::as_slice)
     }
 

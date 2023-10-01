@@ -18,13 +18,11 @@ use crate::assets;
 use crate::render;
 use crate::scene;
 
-use rand::Rng;
-
 mod shader;
 
 pub struct Light {
     transform: render::Transform,
-    mesh: render::Mesh,
+    model_index: scene::ModelIndex,
 
     constant: f32,
     linear: f32,
@@ -41,7 +39,7 @@ pub enum LightType {
 }
 
 pub struct PreparedObject {
-    mesh: render::PreparedMesh,
+    model_index: scene::ModelIndex,
     transform_index: i32,
 
     color: render::Color,
@@ -61,32 +59,23 @@ pub struct PreparedLight {
 }
 
 impl Light {
-    pub fn new(assets: &mut assets::Loader) -> Self {
-        // let mut rng = rand::thread_rng();
-        // let transform = render::Transform::from_position_scale(
-        //     glam::vec3(
-        //         rng.gen_range(-20_f32..20_f32),
-        //         rng.gen_range(-20_f32..20_f32),
-        //         rng.gen_range(-20_f32..20_f32),
-        //     ),
-        //     glam::Vec3::splat(0.1),
-        // );
+    pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Models) -> Self {
         let transform = render::Transform::from_position(glam::vec3(0.0, 3.0, 0.0));
 
         let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
-        let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
+        let model_index = scene_models.upload_mesh(models[0].clone());
 
         let constant = 1.0;
         let linear = 0.35;
         let quadratic = 0.44;
 
         let ambient = render::Color::from_rgb_normalized(glam::vec3(0.01, 0.01, 0.01));
-        let diffuse = render::Color::from_rgb_normalized(glam::vec3(0.6, 0.65, 1.0));
+        let diffuse = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
         let specular = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
 
         Light {
             transform,
-            mesh,
+            model_index,
 
             constant,
             linear,
@@ -106,12 +95,11 @@ impl Light {
             ..self.transform
         };
         let transform_index = resources.transforms.push(&transform) as i32;
-        let mesh = self.mesh.prepare(resources);
 
         let color = self.diffuse;
 
         PreparedObject {
-            mesh,
+            model_index: self.model_index,
             transform_index,
 
             color,
@@ -169,7 +157,7 @@ impl PreparedObject {
                 &push_constants_bytes[12..],
             );
 
-            self.mesh.draw(resources, render_pass);
+            self.model_index.draw(resources, render_pass);
         }
 
         render_pass.pop_debug_group();

@@ -3,6 +3,7 @@
 
 fn main() {
     color_backtrace::install();
+    env_logger::init();
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()

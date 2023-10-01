@@ -24,27 +24,31 @@ pub use textures::Textures;
 
 pub struct Object {
     pub transform: render::Transform,
-    pub mesh: render::Mesh,
+    pub model_index: scene::ModelIndex,
     pub textures: textures::Textures,
 
     time: f32,
 }
 
 pub struct Prepared<'obj> {
-    mesh: render::PreparedMesh,
+    model_index: scene::ModelIndex,
     textures: &'obj textures::Textures,
 
     transform_index: i32,
 }
 
 impl Object {
-    pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
+    pub fn new(
+        render_state: &render::State,
+        assets: &mut assets::Loader,
+        scene_models: &mut scene::Models,
+    ) -> Self {
         let transform = render::Transform::new();
         // let transform =
         //     render::Transform::from_xyz((i % 20 - 10) as f32 * 3., 0.0, (i / 20 - 10) as f32 * 3.);
 
         let (_, models) = assets.models.load("assets/meshes/cube.obj");
-        let mesh = render::Mesh::from_tobj_mesh(&models[0].mesh);
+        let model_index = scene_models.upload_mesh(models[0].clone());
 
         let albedo_id = assets
             .textures
@@ -61,7 +65,7 @@ impl Object {
 
         Self {
             transform,
-            mesh,
+            model_index,
             textures,
 
             time: 0.0,
@@ -78,9 +82,9 @@ impl Object {
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
         let transform_index = resources.transforms.push(&self.transform) as i32;
-        let mesh = self.mesh.prepare(resources);
+
         Prepared {
-            mesh,
+            model_index: self.model_index,
             transform_index,
             textures: &self.textures,
         }
@@ -103,7 +107,7 @@ impl<'obj> Prepared<'obj> {
             );
 
             self.textures.bind(render_pass, 2);
-            self.mesh.draw(resources, render_pass);
+            self.model_index.draw(resources, render_pass);
         }
 
         render_pass.pop_debug_group();

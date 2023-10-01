@@ -24,12 +24,16 @@ use crate::object;
 use itertools::Itertools;
 use std::time::Instant;
 
+mod models;
+pub use models::{ModelIndex, Models};
+
 pub struct Scene {
-    camera: render::Camera,
     objects: Vec<object::Object>,
     lights: Vec<light::Light>,
 
+    camera: render::Camera,
     buffers: Buffers,
+    models: Models,
 
     last_update: Instant,
 }
@@ -38,17 +42,39 @@ pub struct Buffers {
     transforms: render::buffer::dynamic::Buffer<render::Transform>,
     lights: render::buffer::dynamic::Buffer<light::PreparedLight>,
     camera: render::buffer::single::Buffer<render::Camera>,
-    mesh: render::buffer::mesh::Buffer,
 
-    geometry: render::buffer::geometry::Buffer,
+    gbuffer: render::buffer::geometry::Buffer,
     screen_vertices: wgpu::Buffer,
+}
+
+impl Buffers {
+    pub fn new(render_state: &render::State) -> Self {
+        let transforms =
+            render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
+
+        let lights =
+            render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
+
+        let camera = render::buffer::single::Buffer::new(render_state, wgpu::BufferUsages::empty());
+
+        let gbuffer = render::buffer::geometry::Buffer::new(render_state);
+
+        let screen_vertices = Scene::create_screen_vertex_buffer(render_state);
+
+        Self {
+            transforms,
+            lights,
+            camera,
+            gbuffer,
+            screen_vertices,
+        }
+    }
 }
 
 pub struct PrepareResources<'buf> {
     pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
     pub lights: render::buffer::dynamic::Writer<'buf, light::PreparedLight>,
     pub camera: render::buffer::single::Writer<'buf, render::Camera>,
-    pub mesh: render::buffer::mesh::Writer<'buf>,
 }
 
 pub struct RenderResources<'res> {
@@ -56,54 +82,29 @@ pub struct RenderResources<'res> {
     pub lights: &'res wgpu::BindGroup,
     pub camera: &'res wgpu::BindGroup,
 
-    pub vertices: &'res wgpu::Buffer,
-    pub indices: &'res wgpu::Buffer,
+    pub vertex_buffer: &'res wgpu::Buffer,
+    pub index_buffer: &'res wgpu::Buffer,
 }
 
 impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
-        // let objects = (0..400)
-        //     .map(|i| object::Object::new(render_state, assets, i))
-        //     .collect_vec();
-        // let lights = (0..200).map(|_| light::Light::new(assets)).collect_vec();
-        let objects = vec![object::Object::new(render_state, assets)];
-        let lights = vec![light::Light::new(assets)];
 
-        let transform_buffer =
-            render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
+        let buffers = Buffers::new(render_state);
+        let mut models = Models::new(render_state);
 
-        let light_buffer =
-            render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
-
-        let camera_buffer =
-            render::buffer::single::Buffer::new(render_state, wgpu::BufferUsages::empty());
-
-        let mesh_buffer =
-            render::buffer::mesh::Buffer::new(render_state, wgpu::BufferUsages::empty());
-
-        let gbuffer = render::buffer::geometry::Buffer::new(render_state);
-
-        let screen_vertices = Self::create_screen_vertex_buffer(render_state);
-
-        let buffers = Buffers {
-            transforms: transform_buffer,
-            lights: light_buffer,
-            camera: camera_buffer,
-            mesh: mesh_buffer,
-
-            geometry: gbuffer,
-            screen_vertices,
-        };
+        let objects = vec![object::Object::new(render_state, assets, &mut models)];
+        let lights = vec![light::Light::new(assets, &mut models)];
 
         let last_update = Instant::now();
 
         Self {
-            camera,
             objects,
             lights,
 
+            camera,
             buffers,
+            models,
 
             last_update,
         }
@@ -114,7 +115,7 @@ impl Scene {
         let dt = (self.last_update - before).as_secs_f32();
 
         if input_state.new_window_size().is_some() {
-            self.buffers.geometry.resize_to_screen(render_state);
+            self.buffers.gbuffer.resize_to_screen(render_state);
         }
 
         for object in self.objects.iter_mut() {
@@ -140,11 +141,14 @@ impl Scene {
         // Prepare everything for rendering
         encoder.push_debug_group("Scene prep");
 
+        self.models.write_unwritten(render_state, &mut encoder);
+
+        let (vertex_buffer, index_buffer) = self.models.as_buffers();
+
         let mut resources = PrepareResources {
             transforms: self.buffers.transforms.start_write(),
             lights: self.buffers.lights.start_write(),
             camera: self.buffers.camera.start_write(),
-            mesh: self.buffers.mesh.start_write(),
         };
 
         let prepared_objects = self
@@ -174,21 +178,17 @@ impl Scene {
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("wormhole deferred render pass"),
-            color_attachments: &self.buffers.geometry.as_color_attachments(),
-            depth_stencil_attachment: Some(
-                self.buffers.geometry.depth_stencil_attachment_initial(),
-            ),
+            color_attachments: &self.buffers.gbuffer.as_color_attachments(),
+            depth_stencil_attachment: Some(self.buffers.gbuffer.depth_stencil_attachment_initial()),
         });
-
-        let (vertex_buffer, index_buffer) = resources.mesh.finish(render_state);
 
         let render_resources = RenderResources {
             transform: resources.transforms.finish(render_state),
             lights: resources.lights.finish(render_state),
             camera: resources.camera.finish(render_state),
 
-            vertices: vertex_buffer,
-            indices: index_buffer,
+            vertex_buffer,
+            index_buffer,
         };
 
         render_pass.set_pipeline(&render_state.pipelines.object);
@@ -238,7 +238,7 @@ impl Scene {
 
         render_pass.set_bind_group(0, render_resources.camera, &[]);
         render_pass.set_bind_group(1, render_resources.lights, &[]);
-        render_pass.set_bind_group(2, &self.buffers.geometry.bind_group, &[]);
+        render_pass.set_bind_group(2, &self.buffers.gbuffer.bind_group, &[]);
 
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
@@ -260,7 +260,7 @@ impl Scene {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: Some(self.buffers.geometry.depth_stencil_attachment()),
+            depth_stencil_attachment: Some(self.buffers.gbuffer.depth_stencil_attachment()),
         });
 
         render_pass.set_pipeline(&render_state.pipelines.light_object);
