@@ -17,19 +17,13 @@
 use std::collections::HashMap;
 
 use crate::assets;
-use crate::render;
 
-pub struct Textures {
-    pub(super) textures: HashMap<Id, render::Texture>,
+pub struct Gltf {
+    documents: HashMap<Id, gltf::Gltf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Id {
-    // Path id
-    Path(u64),
-    // Gltf id, texture id
-    Gltf(assets::GltfId, usize),
-}
+pub struct Id(u64);
 
 impl Id {
     pub fn from_path(path: impl AsRef<camino::Utf8Path>) -> Self {
@@ -40,11 +34,7 @@ impl Id {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         path.hash(&mut hasher);
 
-        Self::Path(hasher.finish())
-    }
-
-    pub fn from_gltf(gltf_id: assets::GltfId, texture_id: usize) -> Self {
-        Self::Gltf(gltf_id, texture_id)
+        Self(hasher.finish())
     }
 }
 
@@ -57,47 +47,33 @@ where
     }
 }
 
-impl Textures {
-    pub(super) fn new() -> Self {
+impl Gltf {
+    pub fn new() -> Self {
         Self {
-            textures: HashMap::new(),
+            documents: HashMap::new(),
         }
     }
 
-    pub fn load_from_path(
-        &mut self,
-        render_state: &render::State,
-        path: impl AsRef<camino::Utf8Path>,
-    ) -> Id {
-        self.load_from_path_with_format(render_state, path, render::TextureFormat::GENERIC)
-    }
-
-    pub fn load_from_path_with_format(
-        &mut self,
-        render_state: &render::State,
-        path: impl AsRef<camino::Utf8Path>,
-        format: render::TextureFormat,
-    ) -> Id {
+    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> Id {
         let path = path.as_ref();
         let id = Id::from_path(path);
 
-        self.textures.entry(id).or_insert_with(|| {
-            let image = image::open(path).expect("failed to load texture");
-            render::Texture::from_image(render_state, &image, format)
-        });
+        self.documents
+            .entry(id)
+            .or_insert_with(|| gltf::Gltf::open(path).expect("failed to open gltf file"));
 
         id
     }
 
-    pub fn get_expect(&self, id: Id) -> &render::Texture {
+    pub fn get_expect(&self, id: Id) -> &gltf::Gltf {
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&render::Texture> {
-        self.textures.get(&id)
+    pub fn get(&self, id: Id) -> Option<&gltf::Gltf> {
+        self.documents.get(&id)
     }
 
     pub fn keep_ids(&mut self, ids: &[Id]) {
-        self.textures.retain(|i, _| ids.contains(i))
+        self.documents.retain(|i, _| ids.contains(i))
     }
 }

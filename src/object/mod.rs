@@ -15,55 +15,55 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::assets;
 use crate::render;
 use crate::scene;
 
 pub mod shader;
-mod textures;
-pub use textures::Textures;
 
 pub struct Object {
     pub transform: render::Transform,
-    pub mesh_index: scene::MeshIndex,
-    pub textures: textures::Textures,
+    pub mesh_indices: Vec<scene::MeshIndex>,
 }
 
-pub struct Prepared<'obj> {
-    model_index: scene::MeshIndex,
-    textures: &'obj textures::Textures,
-
+pub struct Prepared {
     transform_index: i32,
+    mesh_indices: Vec<scene::MeshIndex>,
 }
 
 impl Object {
     pub fn new(
+        meshes: &mut scene::Meshes,
         transform: render::Transform,
-        model_index: scene::MeshIndex,
-        textures: textures::Textures,
+        model: &assets::Model,
     ) -> Self {
+        let mesh_indices = model
+            .meshes
+            .iter()
+            .cloned()
+            .map(|m| meshes.upload_mesh(m))
+            .collect();
         Self {
             transform,
-            mesh_index: model_index,
-            textures,
+            mesh_indices,
         }
     }
 
-    pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {
+    pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared {
         let transform_index = resources.transforms.push(&self.transform) as i32;
 
         Prepared {
-            model_index: self.mesh_index,
             transform_index,
-            textures: &self.textures,
+            mesh_indices: self.mesh_indices.clone(),
         }
     }
 }
 
-impl<'obj> Prepared<'obj> {
-    pub fn draw(
+impl Prepared {
+    pub fn draw<'rpass>(
         self,
-        resources: &scene::RenderResources<'obj>,
-        render_pass: &mut wgpu::RenderPass<'obj>,
+        resources: &scene::RenderResources<'rpass>,
+        render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
         render_pass.push_debug_group("wormhole object draw");
 
@@ -74,8 +74,9 @@ impl<'obj> Prepared<'obj> {
                 bytemuck::bytes_of(&self.transform_index),
             );
 
-            self.textures.bind(render_pass, 2);
-            self.model_index.draw(resources, render_pass);
+            for mesh_index in self.mesh_indices {
+                mesh_index.draw(resources, render_pass);
+            }
         }
 
         render_pass.pop_debug_group();

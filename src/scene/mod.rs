@@ -19,6 +19,7 @@ use crate::input;
 use crate::render;
 
 use crate::light;
+use crate::material;
 use crate::object;
 
 use itertools::Itertools;
@@ -92,24 +93,7 @@ impl Scene {
 
         let mut meshes = Meshes::new(render_state);
 
-        let mut objects = vec![];
-
-        for path in [
-            "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
-            "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
-            "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",
-        ] {
-            let (document, buffers, images) = gltf::import(path).expect("failed to load gltf");
-
-            Self::load_gltf(
-                render_state,
-                &mut meshes,
-                &mut objects,
-                document,
-                buffers,
-                images,
-            );
-        }
+        let objects = vec![];
 
         let lights = vec![light::Light::new(assets, &mut meshes)];
 
@@ -126,108 +110,6 @@ impl Scene {
             meshes,
 
             last_update,
-        }
-    }
-
-    fn load_gltf(
-        render_state: &render::State,
-        meshes: &mut Meshes,
-        objects: &mut Vec<object::Object>,
-
-        document: gltf::Document,
-        buffers: Vec<gltf::buffer::Data>,
-        images: Vec<gltf::image::Data>,
-    ) {
-        fn process_node(
-            render_state: &render::State,
-            node: gltf::Node<'_>,
-            primitive_index_map: &std::collections::HashMap<(usize, usize), MeshIndex>,
-            texture_index_map: &std::collections::HashMap<(usize, usize), render::Texture>,
-            objects: &mut Vec<object::Object>,
-        ) {
-            if let Some(name) = node.name() {
-                log::info!("Processing node {name}");
-            }
-            let transform = node.transform().into();
-            if let Some(mesh) = node.mesh() {
-                for primitive in mesh.primitives() {
-                    let albedo_texture_index = primitive
-                        .material()
-                        .pbr_metallic_roughness()
-                        .base_color_texture()
-                        .map(|n| (n.texture().index(), n.texture().source().index()))
-                        .unwrap_or_default();
-                    let normal_texture_index = primitive
-                        .material()
-                        .normal_texture()
-                        .map(|n| (n.texture().index(), n.texture().source().index()))
-                        .unwrap_or_default();
-
-                    let textures = object::Textures::new(
-                        render_state,
-                        &texture_index_map[&albedo_texture_index],
-                        &texture_index_map[&normal_texture_index],
-                    );
-                    let mesh_index = primitive_index_map[&(mesh.index(), primitive.index())];
-                    log::info!("Node has mesh {mesh_index:#?} ({:#?})", mesh.name());
-
-                    objects.push(object::Object::new(transform, mesh_index, textures))
-                }
-            }
-            for node in node.children() {
-                process_node(
-                    render_state,
-                    node,
-                    primitive_index_map,
-                    texture_index_map,
-                    objects,
-                );
-            }
-        }
-
-        let mut primitive_index_map = std::collections::HashMap::new();
-        for mesh in document.meshes() {
-            log::info!("Loading mesh {:#?}", mesh.name());
-            let gltf_mesh_index = mesh.index();
-            for primitive in mesh.primitives() {
-                let primitive_index = primitive.index();
-                let mesh = render::Mesh::from_gltf_primitive(primitive, &buffers);
-                let mesh_index = meshes.upload_mesh(mesh.into());
-                primitive_index_map.insert((gltf_mesh_index, primitive_index), mesh_index);
-            }
-        }
-
-        let mut texture_index_map = std::collections::HashMap::new();
-        for texture in document.textures() {
-            let texture_index = texture.index();
-            let image_index = texture.source().index();
-
-            let image = images[image_index].clone();
-            let image = match image.format {
-                gltf::image::Format::R8G8B8 => image::DynamicImage::ImageRgb8(
-                    image::ImageBuffer::from_vec(image.width, image.height, image.pixels).unwrap(),
-                ),
-                gltf::image::Format::R8G8B8A8 => image::DynamicImage::ImageRgba8(
-                    image::ImageBuffer::from_vec(image.width, image.height, image.pixels).unwrap(),
-                ),
-                _ => todo!(),
-            };
-
-            let texture =
-                render::Texture::from_image(render_state, &image, render::TextureFormat::GENERIC);
-            texture_index_map.insert((texture_index, image_index), texture);
-        }
-
-        for scene in document.scenes() {
-            for node in scene.nodes() {
-                process_node(
-                    render_state,
-                    node,
-                    &primitive_index_map,
-                    &texture_index_map,
-                    objects,
-                );
-            }
         }
     }
 
@@ -309,8 +191,13 @@ impl Scene {
         };
 
         render_pass.set_pipeline(&render_state.pipelines.object);
+
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
         render_pass.set_bind_group(0, render_resources.camera, &[]);
         render_pass.set_bind_group(1, render_resources.transform, &[]);
+
         for prepared in prepared_objects {
             prepared.draw(&render_resources, &mut render_pass);
         }
@@ -381,8 +268,13 @@ impl Scene {
         });
 
         render_pass.set_pipeline(&render_state.pipelines.light_object);
+
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
         render_pass.set_bind_group(0, render_resources.camera, &[]);
         render_pass.set_bind_group(1, render_resources.transform, &[]);
+
         for light in prepared_light_objects {
             light.draw(&render_resources, &mut render_pass);
         }

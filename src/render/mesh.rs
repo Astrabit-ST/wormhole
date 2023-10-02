@@ -20,13 +20,15 @@ use itertools::Itertools;
 pub struct Mesh {
     pub vertices: Vec<render::Vertex>,
     pub indices: Vec<u32>,
+    pub material_id: usize,
 }
 
 impl Mesh {
-    pub fn new(vertices: &[render::Vertex], indices: &[u32]) -> Self {
+    pub fn new(vertices: &[render::Vertex], indices: &[u32], material_id: usize) -> Self {
         Self {
             vertices: vertices.to_vec(),
             indices: indices.to_vec(),
+            material_id,
         }
     }
 
@@ -58,6 +60,7 @@ impl Mesh {
         Self {
             vertices,
             indices: mesh.indices,
+            material_id: mesh.material_id.unwrap_or_default(),
         }
     }
 
@@ -96,7 +99,11 @@ impl Mesh {
 
         Self::calculate_bitangent_tangent(&indices, &mut vertices);
 
-        Self { vertices, indices }
+        Self {
+            vertices,
+            indices,
+            material_id: primitive.material().index().unwrap_or_default(),
+        }
     }
 
     fn calculate_bitangent_tangent(indices: &[u32], vertices: &mut [render::Vertex]) {

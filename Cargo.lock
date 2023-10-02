@@ -3143,6 +3143,7 @@ name = "wormhole"
 version = "0.1.0"
 dependencies = [
  "bevy_ecs",
+ "bitflags 2.4.0",
  "bytemuck",
  "camino",
  "color-backtrace",

@@ -19,13 +19,36 @@ use crate::assets;
 pub struct Loader {
     pub textures: assets::Textures,
     pub models: assets::Models,
+    pub gltf: assets::Gltf,
 }
 
 impl Loader {
     pub fn new() -> Self {
         let textures = assets::textures::Textures::new();
         let models = assets::Models::new();
+        let gltf = assets::Gltf::new();
 
-        Self { textures, models }
+        Self {
+            textures,
+            models,
+            gltf,
+        }
+    }
+
+    pub fn load_gltf(&mut self, path: impl AsRef<camino::Utf8Path>) {
+        let gltf_id = self.gltf.load(path);
+
+        let gltf::Gltf { document, blob } = self.gltf.get_expect(gltf_id).clone();
+        let buffers =
+            gltf::import_buffers(&document, None, blob).expect("failed to import gltf buffers");
+        let images =
+            gltf::import_images(&document, None, &buffers).expect("failed to import gltf images");
+
+        // FIXME: handle samplers and textures better?
+        for texture in document.textures() {
+            let texture_id = texture.index();
+
+            let image = &images[texture.source().index()];
+        }
     }
 }

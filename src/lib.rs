@@ -27,12 +27,17 @@ pub mod assets {
     mod loader;
     pub use loader::Loader;
 
+    mod gltf;
+    pub use gltf::Gltf;
+    pub use gltf::Id as GltfId;
+
     mod textures;
     pub use textures::Id as TextureId;
     pub use textures::Textures;
 
     mod models;
     pub use models::Id as ModelId;
+    pub use models::Model;
     pub use models::Models;
 }
 
@@ -85,6 +90,8 @@ pub mod render {
 }
 
 pub mod light;
+
+pub mod material;
 
 pub mod object;
 

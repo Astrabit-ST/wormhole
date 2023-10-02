@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::light;
+use crate::material;
 use crate::object;
 use crate::render;
 
@@ -134,7 +135,7 @@ impl GpuCreated {
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
         let light = light::PreparedLight::create_bind_group_layout(&self);
-        let object_textures = object::Textures::create_bind_group_layout(&self);
+        let material_textures = material::Textures::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
 
         BindGroupsCreated {
@@ -143,7 +144,7 @@ impl GpuCreated {
                 camera,
                 transform,
                 light,
-                object_textures,
+                object_textures: material_textures,
                 gbuffer,
             },
         }

@@ -38,6 +38,7 @@ crossbeam = "0.8.2"
 color-backtrace = "0.6.0"
 itertools = "0.11.0"
 rand = "0.8.5"
+bitflags = "2.4.0"
 
 # Logging & profiling
 log = "0.4.20"

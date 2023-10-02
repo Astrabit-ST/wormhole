@@ -244,20 +244,15 @@ impl Meshes {
 impl MeshIndex {
     pub fn draw<'rpass>(
         self,
-        resources: &scene::RenderResources<'rpass>,
+        _: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
-        let vertex_start = self.vertex_offset;
-        let vertex_end = self.vertex_offset + (self.vertex_count * VERTEX_SIZE);
+        let vertex_start = self.vertex_offset / VERTEX_SIZE;
+        let base_vertex = -(vertex_start as i32);
 
-        let index_start = self.index_offset;
-        let index_end = self.index_offset + (self.index_count * INDEX_SIZE);
+        let index_start = (self.index_offset / INDEX_SIZE) as u32;
+        let index_end = index_start + self.index_count as u32;
 
-        render_pass.set_vertex_buffer(0, resources.vertex_buffer.slice(vertex_start..vertex_end));
-        render_pass.set_index_buffer(
-            resources.index_buffer.slice(index_start..index_end),
-            wgpu::IndexFormat::Uint32,
-        );
-        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
+        render_pass.draw_indexed(index_start..index_end, base_vertex, 0..1)
     }
 }

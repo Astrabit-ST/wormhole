@@ -62,8 +62,9 @@ impl Light {
     pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Meshes) -> Self {
         let transform = render::Transform::from_position(glam::vec3(0.0, 200.0, 0.0));
 
-        let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
-        let model_index = scene_models.upload_mesh(models[0].clone());
+        let id = assets.models.load_tobj("assets/meshes/ico_sphere.obj");
+        let model = assets.models.get_expect(id);
+        let model_index = scene_models.upload_mesh(model.meshes[0].clone());
 
         let constant = 1.0;
         let linear = 0.007;

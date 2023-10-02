@@ -17,62 +17,98 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::assets;
 use crate::render;
 
 pub struct Models {
-    models: slab::Slab<Vec<Arc<render::Mesh>>>,
-    ids: HashMap<camino::Utf8PathBuf, usize>,
+    pub(super) models: HashMap<Id, Model>,
+}
+
+pub struct Model {
+    pub meshes: Vec<Arc<render::Mesh>>,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id(usize);
+pub enum Id {
+    // Path id
+    Path(u64),
+    // Gltf id, mesh id
+    Gltf(assets::GltfId, usize),
+}
+
+impl Id {
+    pub fn from_path(path: impl AsRef<camino::Utf8Path>) -> Self {
+        use std::hash::{Hash, Hasher};
+
+        let path = path.as_ref();
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        path.hash(&mut hasher);
+
+        Self::Path(hasher.finish())
+    }
+
+    pub fn from_gltf(gltf_id: assets::GltfId, texture_id: usize) -> Self {
+        Self::Gltf(gltf_id, texture_id)
+    }
+}
+
+impl<T> From<T> for Id
+where
+    T: AsRef<camino::Utf8Path>,
+{
+    fn from(value: T) -> Self {
+        Self::from_path(value)
+    }
+}
 
 impl Models {
     pub(super) fn new() -> Self {
         Self {
-            models: slab::Slab::new(),
-            ids: HashMap::new(),
+            models: HashMap::new(),
         }
     }
 
-    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> (Id, &[Arc<render::Mesh>]) {
-        self.load_with_options(path, &tobj::GPU_LOAD_OPTIONS)
+    pub fn load_tobj(&mut self, path: impl AsRef<camino::Utf8Path>) -> Id {
+        self.load_tobj_with_options(path, &tobj::GPU_LOAD_OPTIONS)
     }
 
-    pub fn load_with_options(
+    pub fn load_tobj_with_options(
         &mut self,
         path: impl AsRef<camino::Utf8Path>,
         load_options: &tobj::LoadOptions,
-    ) -> (Id, &[Arc<render::Mesh>]) {
+    ) -> Id {
         let path = path.as_ref();
+        let id = Id::from_path(path);
 
-        let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
-            let (models, _) = tobj::load_obj(path, load_options).expect("failed to load models");
-            let models = models
+        self.models.entry(id).or_insert_with(|| {
+            // FIXME: this behavior is probably wrong.
+            let (meshes, _) = tobj::load_obj(path, load_options).expect("failed to load models");
+            let meshes = meshes
                 .into_iter()
                 .map(|m| render::Mesh::from_tobj_mesh(m.mesh))
                 .map(Arc::new)
                 .collect();
 
-            self.models.insert(models)
+            Model {
+                meshes,
+                name: path.to_string(),
+            }
         });
-        let models = self
-            .models
-            .get(*id)
-            .expect("asset not existent despite being loaded");
 
-        (Id(*id), models)
+        id
     }
 
-    pub fn get_expect(&self, id: Id) -> &[Arc<render::Mesh>] {
+    pub fn get_expect(&self, id: Id) -> &Model {
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&[Arc<render::Mesh>]> {
-        self.models.get(id.0).map(Vec::as_slice)
+    pub fn get(&self, id: Id) -> Option<&Model> {
+        self.models.get(&id)
     }
 
     pub fn keep_ids(&mut self, ids: &[Id]) {
-        self.models.retain(|i, _| ids.contains(&Id(i)))
+        self.models.retain(|i, _| ids.contains(i))
     }
 }
