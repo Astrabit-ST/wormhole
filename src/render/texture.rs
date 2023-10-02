@@ -113,19 +113,20 @@ impl Texture {
         )
     }
 
-    pub fn from_image(
+    pub fn from_bytes(
         render_state: &render::State,
-        image: &image::DynamicImage,
+        image: &[u8],
+        width: u32,
+        height: u32,
         format: TextureFormat,
     ) -> Self {
-        let image = image.to_rgba8();
         let texture = render_state.wgpu.device.create_texture_with_data(
             &render_state.wgpu.queue,
             &wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width: image.width(),
-                    height: image.height(),
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 dimension: wgpu::TextureDimension::D2,
@@ -135,7 +136,7 @@ impl Texture {
                 usage: format.usage,
                 view_formats: &[],
             },
-            &image,
+            image,
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = render_state
@@ -156,6 +157,15 @@ impl Texture {
             view,
             sampler,
         }
+    }
+
+    pub fn from_image(
+        render_state: &render::State,
+        image: &image::DynamicImage,
+        format: TextureFormat,
+    ) -> Self {
+        let image = image.to_rgba8();
+        Self::from_bytes(render_state, &image, image.width(), image.height(), format)
     }
 
     pub fn resize_to_screen(&mut self, render_state: &render::State) {

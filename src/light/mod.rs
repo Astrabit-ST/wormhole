@@ -60,7 +60,7 @@ pub struct PreparedLight {
 
 impl Light {
     pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Models) -> Self {
-        let transform = render::Transform::from_position(glam::vec3(0.0, 3.0, 0.0));
+        let transform = render::Transform::from_position(glam::vec3(2.0, 3.0, 0.0));
 
         let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
         let model_index = scene_models.upload_mesh(models[0].clone());

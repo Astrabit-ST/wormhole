@@ -26,8 +26,6 @@ pub struct Object {
     pub transform: render::Transform,
     pub model_index: scene::ModelIndex,
     pub textures: textures::Textures,
-
-    time: f32,
 }
 
 pub struct Prepared<'obj> {
@@ -39,45 +37,15 @@ pub struct Prepared<'obj> {
 
 impl Object {
     pub fn new(
-        render_state: &render::State,
-        assets: &mut assets::Loader,
-        scene_models: &mut scene::Models,
+        transform: render::Transform,
+        model_index: scene::ModelIndex,
+        textures: textures::Textures,
     ) -> Self {
-        let transform = render::Transform::new();
-        // let transform =
-        //     render::Transform::from_xyz((i % 20 - 10) as f32 * 3., 0.0, (i / 20 - 10) as f32 * 3.);
-
-        let (_, models) = assets.models.load("assets/meshes/cube.obj");
-        let model_index = scene_models.upload_mesh(models[0].clone());
-
-        let albedo_id = assets
-            .textures
-            .load(render_state, "assets/textures/cube-diffuse.jpg");
-        let normal_id = assets
-            .textures
-            .load(render_state, "assets/textures/cube-normal.png");
-
-        let textures = Textures::new(
-            render_state,
-            assets.textures.get_expect(albedo_id),
-            assets.textures.get_expect(normal_id),
-        );
-
         Self {
             transform,
             model_index,
             textures,
-
-            time: 0.0,
         }
-    }
-
-    pub fn update(&mut self, dt: f32) {
-        self.time += dt;
-        // self.transform.position.x = self.time.sin() * 20.;
-        // self.transform.position.z = self.time.cos() * 20.;
-
-        // self.transform.rotation *= glam::Quat::from_euler(glam::EulerRot::XYZ, 0., 2.0 * dt, 0.);
     }
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared<'_> {

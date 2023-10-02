@@ -82,11 +82,20 @@ impl Transform {
             scale: glam::Vec3::ONE,
         }
     }
+
+    pub fn from_gltf(transform: gltf::scene::Transform) -> Self {
+        let (position, rotation, scale) = transform.decomposed();
+        Self {
+            position: glam::Vec3::from_array(position),
+            rotation: glam::Quat::from_array(rotation),
+            scale: glam::Vec3::from_array(scale),
+        }
+    }
 }
 
-impl Transform {
-    pub fn translate(&mut self, vec: glam::Vec3) {
-        self.position += vec
+impl From<gltf::scene::Transform> for Transform {
+    fn from(value: gltf::scene::Transform) -> Self {
+        Self::from_gltf(value)
     }
 }
 

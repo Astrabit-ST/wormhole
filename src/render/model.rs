@@ -54,9 +54,66 @@ impl Model {
                 }
             })
             .collect_vec();
+
+        Self::calculate_bitangent_tangent(&model.mesh.indices, &mut vertices);
+
+        Self {
+            name: model.name,
+            vertices,
+            indices: model.mesh.indices,
+        }
+    }
+
+    pub fn from_gltf_mesh(mesh: gltf::Mesh<'_>, buffers: &[gltf::buffer::Data]) -> Self {
+        let name = mesh.name().unwrap_or("unnamed mesh").to_string();
+
+        // FIXME: multiple material meshes???
+        if let Some(primitive) = mesh.primitives().next() {
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+            let positions = reader.read_positions().unwrap().map(glam::Vec3::from_array);
+
+            let mut normals = reader.read_normals().unwrap().map(glam::Vec3::from_array);
+
+            let mut tex_coords = reader
+                .read_tex_coords(0)
+                .unwrap()
+                .into_f32()
+                .map(glam::Vec2::from_array);
+
+            let mut vertices = positions
+                .map(|position| {
+                    let tex_coords = tex_coords.next().unwrap_or_default();
+                    let normal = normals.next().unwrap_or_default();
+
+                    render::Vertex {
+                        position,
+                        tex_coords,
+                        normal,
+
+                        ..Default::default()
+                    }
+                })
+                .collect_vec();
+
+            let indices = reader.read_indices().unwrap().into_u32().collect_vec();
+
+            Self::calculate_bitangent_tangent(&indices, &mut vertices);
+
+            return Self {
+                name,
+                vertices,
+                indices,
+            };
+        }
+
+        todo!()
+    }
+
+    fn calculate_bitangent_tangent(indices: &[u32], vertices: &mut [render::Vertex]) {
         let mut triangles_included = vec![0; vertices.len()];
 
-        for i in model.mesh.indices.chunks(3) {
+        for i in indices.chunks(3) {
             let v0 = vertices[i[0] as usize];
             let v1 = vertices[i[1] as usize];
             let v2 = vertices[i[2] as usize];
@@ -91,12 +148,6 @@ impl Model {
             let v = &mut vertices[i];
             v.tangent *= denom;
             v.bitangent *= denom;
-        }
-
-        Self {
-            name: model.name,
-            vertices,
-            indices: model.mesh.indices,
         }
     }
 }
