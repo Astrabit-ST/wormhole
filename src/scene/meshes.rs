@@ -118,6 +118,12 @@ impl Meshes {
             return index;
         }
 
+        log::info!(
+            "Preparing to write mesh {mesh:#?} at {} and {}",
+            self.unwritten_vertex_offset,
+            self.unwritten_index_offset
+        );
+
         let mesh_index = MeshIndex {
             vertex_offset: self.unwritten_vertex_offset,
             vertex_count: mesh.vertices.len() as wgpu::BufferAddress,
@@ -202,7 +208,12 @@ impl Meshes {
         }
 
         for (mesh, index) in self.unwritten_meshes.drain() {
-            log::info!("Writing mesh {:#?}", mesh);
+            log::info!(
+                "Writing mesh {:#?} at {} and {}",
+                mesh,
+                index.vertex_offset,
+                index.index_offset
+            );
 
             render_state.wgpu.queue.write_buffer(
                 &self.vertex_buffer,

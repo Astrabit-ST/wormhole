@@ -23,7 +23,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(name: impl Into<String>, vertices: &[render::Vertex], indices: &[u32]) -> Self {
+    pub fn new(vertices: &[render::Vertex], indices: &[u32]) -> Self {
         Self {
             vertices: vertices.to_vec(),
             indices: indices.to_vec(),

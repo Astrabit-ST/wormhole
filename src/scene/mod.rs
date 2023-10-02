@@ -33,7 +33,7 @@ pub struct Scene {
 
     camera: render::Camera,
     buffers: Buffers,
-    models: Meshes,
+    meshes: Meshes,
 
     last_update: Instant,
 }
@@ -90,25 +90,119 @@ impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
 
-        let mut models = Meshes::new(render_state);
+        let mut meshes = Meshes::new(render_state);
 
-        let (document, buffers, images) =
-            gltf::import("assets/Sponza/glTF/Sponza.gltf").expect("failed to load sponza");
+        let mut objects = vec![];
+
+        for path in [
+            "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
+            "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
+            "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",
+        ] {
+            let (document, buffers, images) = gltf::import(path).expect("failed to load gltf");
+
+            Self::load_gltf(
+                render_state,
+                &mut meshes,
+                &mut objects,
+                document,
+                buffers,
+                images,
+            );
+        }
+
+        let lights = vec![light::Light::new(assets, &mut meshes)];
+
+        let buffers = Buffers::new(render_state);
+
+        let last_update = Instant::now();
+
+        Self {
+            objects,
+            lights,
+
+            camera,
+            buffers,
+            meshes,
+
+            last_update,
+        }
+    }
+
+    fn load_gltf(
+        render_state: &render::State,
+        meshes: &mut Meshes,
+        objects: &mut Vec<object::Object>,
+
+        document: gltf::Document,
+        buffers: Vec<gltf::buffer::Data>,
+        images: Vec<gltf::image::Data>,
+    ) {
+        fn process_node(
+            render_state: &render::State,
+            node: gltf::Node<'_>,
+            primitive_index_map: &std::collections::HashMap<(usize, usize), MeshIndex>,
+            texture_index_map: &std::collections::HashMap<(usize, usize), render::Texture>,
+            objects: &mut Vec<object::Object>,
+        ) {
+            if let Some(name) = node.name() {
+                log::info!("Processing node {name}");
+            }
+            let transform = node.transform().into();
+            if let Some(mesh) = node.mesh() {
+                for primitive in mesh.primitives() {
+                    let albedo_texture_index = primitive
+                        .material()
+                        .pbr_metallic_roughness()
+                        .base_color_texture()
+                        .map(|n| (n.texture().index(), n.texture().source().index()))
+                        .unwrap_or_default();
+                    let normal_texture_index = primitive
+                        .material()
+                        .normal_texture()
+                        .map(|n| (n.texture().index(), n.texture().source().index()))
+                        .unwrap_or_default();
+
+                    let textures = object::Textures::new(
+                        render_state,
+                        &texture_index_map[&albedo_texture_index],
+                        &texture_index_map[&normal_texture_index],
+                    );
+                    let mesh_index = primitive_index_map[&(mesh.index(), primitive.index())];
+                    log::info!("Node has mesh {mesh_index:#?} ({:#?})", mesh.name());
+
+                    objects.push(object::Object::new(transform, mesh_index, textures))
+                }
+            }
+            for node in node.children() {
+                process_node(
+                    render_state,
+                    node,
+                    primitive_index_map,
+                    texture_index_map,
+                    objects,
+                );
+            }
+        }
 
         let mut primitive_index_map = std::collections::HashMap::new();
         for mesh in document.meshes() {
+            log::info!("Loading mesh {:#?}", mesh.name());
+            let gltf_mesh_index = mesh.index();
             for primitive in mesh.primitives() {
                 let primitive_index = primitive.index();
                 let mesh = render::Mesh::from_gltf_primitive(primitive, &buffers);
-                let mesh_index = models.upload_mesh(mesh.into());
-                primitive_index_map.insert(primitive_index, mesh_index);
+                let mesh_index = meshes.upload_mesh(mesh.into());
+                primitive_index_map.insert((gltf_mesh_index, primitive_index), mesh_index);
             }
         }
 
         let mut texture_index_map = std::collections::HashMap::new();
         for texture in document.textures() {
             let texture_index = texture.index();
-            let image = images[texture.source().index()].clone();
+            let image_index = texture.source().index();
+
+            let image = images[image_index].clone();
             let image = match image.format {
                 gltf::image::Format::R8G8B8 => image::DynamicImage::ImageRgb8(
                     image::ImageBuffer::from_vec(image.width, image.height, image.pixels).unwrap(),
@@ -121,57 +215,19 @@ impl Scene {
 
             let texture =
                 render::Texture::from_image(render_state, &image, render::TextureFormat::GENERIC);
-            texture_index_map.insert(texture_index, texture);
+            texture_index_map.insert((texture_index, image_index), texture);
         }
 
-        let mut objects = vec![];
-        let lights = vec![light::Light::new(assets, &mut models)];
-
-        let normal_id = assets
-            .textures
-            .load(render_state, "assets/textures/cube-normal.png");
-
-        for node in document.default_scene().expect("no default scene").nodes() {
-            let transform = node.transform().into();
-            if let Some(mesh) = node.mesh() {
-                for primitive in mesh.primitives() {
-                    let albedo_texture_index = primitive
-                        .material()
-                        .pbr_metallic_roughness()
-                        .base_color_texture()
-                        .map(|n| n.texture().index())
-                        .expect("no albedo texture present");
-                    let normal_texture_index = primitive
-                        .material()
-                        .normal_texture()
-                        .map(|n| n.texture().index())
-                        .unwrap_or_default();
-
-                    let textures = object::Textures::new(
-                        render_state,
-                        &texture_index_map[&albedo_texture_index],
-                        &texture_index_map[&normal_texture_index],
-                    );
-                    let mesh_index = primitive_index_map[&primitive.index()];
-
-                    objects.push(object::Object::new(transform, mesh_index, textures))
-                }
+        for scene in document.scenes() {
+            for node in scene.nodes() {
+                process_node(
+                    render_state,
+                    node,
+                    &primitive_index_map,
+                    &texture_index_map,
+                    objects,
+                );
             }
-        }
-
-        let buffers = Buffers::new(render_state);
-
-        let last_update = Instant::now();
-
-        Self {
-            objects,
-            lights,
-
-            camera,
-            buffers,
-            models,
-
-            last_update,
         }
     }
 
@@ -202,9 +258,9 @@ impl Scene {
         // Prepare everything for rendering
         encoder.push_debug_group("Scene prep");
 
-        self.models.write_unwritten(render_state, &mut encoder);
+        self.meshes.write_unwritten(render_state, &mut encoder);
 
-        let (vertex_buffer, index_buffer) = self.models.as_buffers();
+        let (vertex_buffer, index_buffer) = self.meshes.as_buffers();
 
         let mut resources = PrepareResources {
             transforms: self.buffers.transforms.start_write(),

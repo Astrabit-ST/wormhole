@@ -86,6 +86,7 @@ impl GpuCreated {
                     label: Some("wgpu device"),
                     limits: wgpu::Limits {
                         max_push_constant_size: 128,
+                        max_buffer_size: adapter.limits().max_buffer_size,
                         ..Default::default()
                     },
                     features: wgpu::Features::PUSH_CONSTANTS,
