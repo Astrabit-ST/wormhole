@@ -17,28 +17,26 @@
 use crate::render;
 use itertools::Itertools;
 
-pub struct Model {
-    pub name: String,
+pub struct Mesh {
     pub vertices: Vec<render::Vertex>,
     pub indices: Vec<u32>,
 }
 
-impl Model {
+impl Mesh {
     pub fn new(name: impl Into<String>, vertices: &[render::Vertex], indices: &[u32]) -> Self {
         Self {
-            name: name.into(),
             vertices: vertices.to_vec(),
             indices: indices.to_vec(),
         }
     }
 
     /// The mesh must be loaded with `triangluate` and `single_index` set to true.
-    pub fn from_tobj_model(model: tobj::Model) -> Self {
+    pub fn from_tobj_mesh(mesh: tobj::Mesh) -> Self {
         // Create a list of vertices from the mesh.
-        let mut tex_coords = bytemuck::cast_slice(&model.mesh.texcoords).iter().copied();
-        let mut normals = bytemuck::cast_slice(&model.mesh.normals).iter().copied();
+        let mut tex_coords = bytemuck::cast_slice(&mesh.texcoords).iter().copied();
+        let mut normals = bytemuck::cast_slice(&mesh.normals).iter().copied();
 
-        let mut vertices = bytemuck::cast_slice(&model.mesh.positions)
+        let mut vertices = bytemuck::cast_slice(&mesh.positions)
             .iter()
             .copied()
             .map(|position| {
@@ -55,59 +53,50 @@ impl Model {
             })
             .collect_vec();
 
-        Self::calculate_bitangent_tangent(&model.mesh.indices, &mut vertices);
+        Self::calculate_bitangent_tangent(&mesh.indices, &mut vertices);
 
         Self {
-            name: model.name,
             vertices,
-            indices: model.mesh.indices,
+            indices: mesh.indices,
         }
     }
 
-    pub fn from_gltf_mesh(mesh: gltf::Mesh<'_>, buffers: &[gltf::buffer::Data]) -> Self {
-        let name = mesh.name().unwrap_or("unnamed mesh").to_string();
+    pub fn from_gltf_primitive(
+        primitive: gltf::Primitive<'_>,
+        buffers: &[gltf::buffer::Data],
+    ) -> Self {
+        let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-        // FIXME: multiple material meshes???
-        if let Some(primitive) = mesh.primitives().next() {
-            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+        let positions = reader.read_positions().unwrap().map(glam::Vec3::from_array);
 
-            let positions = reader.read_positions().unwrap().map(glam::Vec3::from_array);
+        let mut normals = reader.read_normals().unwrap().map(glam::Vec3::from_array);
 
-            let mut normals = reader.read_normals().unwrap().map(glam::Vec3::from_array);
+        let mut tex_coords = reader
+            .read_tex_coords(0)
+            .unwrap()
+            .into_f32()
+            .map(glam::Vec2::from_array);
 
-            let mut tex_coords = reader
-                .read_tex_coords(0)
-                .unwrap()
-                .into_f32()
-                .map(glam::Vec2::from_array);
+        let mut vertices = positions
+            .map(|position| {
+                let tex_coords = tex_coords.next().unwrap_or_default();
+                let normal = normals.next().unwrap_or_default();
 
-            let mut vertices = positions
-                .map(|position| {
-                    let tex_coords = tex_coords.next().unwrap_or_default();
-                    let normal = normals.next().unwrap_or_default();
+                render::Vertex {
+                    position,
+                    tex_coords,
+                    normal,
 
-                    render::Vertex {
-                        position,
-                        tex_coords,
-                        normal,
+                    ..Default::default()
+                }
+            })
+            .collect_vec();
 
-                        ..Default::default()
-                    }
-                })
-                .collect_vec();
+        let indices = reader.read_indices().unwrap().into_u32().collect_vec();
 
-            let indices = reader.read_indices().unwrap().into_u32().collect_vec();
+        Self::calculate_bitangent_tangent(&indices, &mut vertices);
 
-            Self::calculate_bitangent_tangent(&indices, &mut vertices);
-
-            return Self {
-                name,
-                vertices,
-                indices,
-            };
-        }
-
-        todo!()
+        Self { vertices, indices }
     }
 
     fn calculate_bitangent_tangent(indices: &[u32], vertices: &mut [render::Vertex]) {
@@ -152,16 +141,15 @@ impl Model {
     }
 }
 
-impl From<tobj::Model> for Model {
-    fn from(value: tobj::Model) -> Self {
-        Self::from_tobj_model(value)
+impl From<tobj::Mesh> for Mesh {
+    fn from(value: tobj::Mesh) -> Self {
+        Self::from_tobj_mesh(value)
     }
 }
 
-impl std::fmt::Debug for Model {
+impl std::fmt::Debug for Mesh {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Model")
-            .field("name", &self.name)
+        f.debug_struct("Mesh")
             .field("vertices", &self.vertices.len())
             .field("indices", &self.indices.len())
             .finish()

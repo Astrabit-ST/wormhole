@@ -84,9 +84,9 @@ impl Texture {
             .wgpu
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
                 mag_filter: format.filtering,
                 min_filter: format.filtering,
                 mipmap_filter: format.filtering,
@@ -143,9 +143,9 @@ impl Texture {
             .wgpu
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
                 mag_filter: format.filtering,
                 min_filter: format.filtering,
                 mipmap_filter: format.filtering,

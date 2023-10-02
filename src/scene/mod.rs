@@ -24,8 +24,8 @@ use crate::object;
 use itertools::Itertools;
 use std::time::Instant;
 
-mod models;
-pub use models::{ModelIndex, Models};
+mod meshes;
+pub use meshes::{MeshIndex, Meshes};
 
 pub struct Scene {
     objects: Vec<object::Object>,
@@ -33,7 +33,7 @@ pub struct Scene {
 
     camera: render::Camera,
     buffers: Buffers,
-    models: Models,
+    models: Meshes,
 
     last_update: Instant,
 }
@@ -90,25 +90,43 @@ impl Scene {
     pub fn new(render_state: &render::State, assets: &mut assets::Loader) -> Self {
         let camera = render::Camera::new(render_state);
 
-        let mut models = Models::new(render_state);
+        let mut models = Meshes::new(render_state);
 
         let (document, buffers, images) =
             gltf::import("assets/Sponza/glTF/Sponza.gltf").expect("failed to load sponza");
 
-        let mut model_index_map = std::collections::HashMap::new();
+        let mut primitive_index_map = std::collections::HashMap::new();
         for mesh in document.meshes() {
-            let mesh_index = mesh.index();
-            let model = render::Model::from_gltf_mesh(mesh, &buffers);
-            let model_index = models.upload_mesh(model.into());
-            model_index_map.insert(mesh_index, model_index);
+            for primitive in mesh.primitives() {
+                let primitive_index = primitive.index();
+                let mesh = render::Mesh::from_gltf_primitive(primitive, &buffers);
+                let mesh_index = models.upload_mesh(mesh.into());
+                primitive_index_map.insert(primitive_index, mesh_index);
+            }
+        }
+
+        let mut texture_index_map = std::collections::HashMap::new();
+        for texture in document.textures() {
+            let texture_index = texture.index();
+            let image = images[texture.source().index()].clone();
+            let image = match image.format {
+                gltf::image::Format::R8G8B8 => image::DynamicImage::ImageRgb8(
+                    image::ImageBuffer::from_vec(image.width, image.height, image.pixels).unwrap(),
+                ),
+                gltf::image::Format::R8G8B8A8 => image::DynamicImage::ImageRgba8(
+                    image::ImageBuffer::from_vec(image.width, image.height, image.pixels).unwrap(),
+                ),
+                _ => todo!(),
+            };
+
+            let texture =
+                render::Texture::from_image(render_state, &image, render::TextureFormat::GENERIC);
+            texture_index_map.insert(texture_index, texture);
         }
 
         let mut objects = vec![];
         let lights = vec![light::Light::new(assets, &mut models)];
 
-        let albedo_id = assets
-            .textures
-            .load(render_state, "assets/textures/cube-diffuse.jpg");
         let normal_id = assets
             .textures
             .load(render_state, "assets/textures/cube-normal.png");
@@ -116,14 +134,28 @@ impl Scene {
         for node in document.default_scene().expect("no default scene").nodes() {
             let transform = node.transform().into();
             if let Some(mesh) = node.mesh() {
-                let textures = object::Textures::new(
-                    render_state,
-                    assets.textures.get_expect(albedo_id),
-                    assets.textures.get_expect(normal_id),
-                );
-                let model_index = model_index_map[&mesh.index()];
+                for primitive in mesh.primitives() {
+                    let albedo_texture_index = primitive
+                        .material()
+                        .pbr_metallic_roughness()
+                        .base_color_texture()
+                        .map(|n| n.texture().index())
+                        .expect("no albedo texture present");
+                    let normal_texture_index = primitive
+                        .material()
+                        .normal_texture()
+                        .map(|n| n.texture().index())
+                        .unwrap_or_default();
 
-                objects.push(object::Object::new(transform, model_index, textures))
+                    let textures = object::Textures::new(
+                        render_state,
+                        &texture_index_map[&albedo_texture_index],
+                        &texture_index_map[&normal_texture_index],
+                    );
+                    let mesh_index = primitive_index_map[&primitive.index()];
+
+                    objects.push(object::Object::new(transform, mesh_index, textures))
+                }
             }
         }
 

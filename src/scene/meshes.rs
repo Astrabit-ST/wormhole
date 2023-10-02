@@ -21,7 +21,7 @@ use crate::render;
 use crate::scene;
 
 #[derive(Debug)]
-pub struct Models {
+pub struct Meshes {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
 
@@ -31,12 +31,12 @@ pub struct Models {
     unwritten_vertex_offset: wgpu::BufferAddress,
     unwritten_index_offset: wgpu::BufferAddress,
 
-    written_meshes: HashMap<MeshRef, ModelIndex>,
-    unwritten_meshes: HashMap<MeshRef, ModelIndex>,
+    written_meshes: HashMap<MeshRef, MeshIndex>,
+    unwritten_meshes: HashMap<MeshRef, MeshIndex>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ModelIndex {
+pub struct MeshIndex {
     pub vertex_offset: wgpu::BufferAddress,
     pub vertex_count: wgpu::BufferAddress,
 
@@ -44,7 +44,7 @@ pub struct ModelIndex {
     pub index_count: wgpu::BufferAddress,
 }
 
-struct MeshRef(Arc<render::Model>);
+struct MeshRef(Arc<render::Mesh>);
 
 impl std::fmt::Debug for MeshRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -73,7 +73,7 @@ const VERTEX_SIZE: wgpu::BufferAddress =
     std::mem::size_of::<render::Vertex>() as wgpu::BufferAddress;
 const INDEX_SIZE: wgpu::BufferAddress = std::mem::size_of::<u32>() as wgpu::BufferAddress;
 
-impl Models {
+impl Meshes {
     pub fn new(render_state: &render::State) -> Self {
         let vertex_buffer = render_state
             .wgpu
@@ -113,12 +113,12 @@ impl Models {
         }
     }
 
-    pub fn upload_mesh(&mut self, mesh: Arc<render::Model>) -> ModelIndex {
+    pub fn upload_mesh(&mut self, mesh: Arc<render::Mesh>) -> MeshIndex {
         if let Some(index) = self.get_mesh_index(Arc::clone(&mesh)) {
             return index;
         }
 
-        let mesh_index = ModelIndex {
+        let mesh_index = MeshIndex {
             vertex_offset: self.unwritten_vertex_offset,
             vertex_count: mesh.vertices.len() as wgpu::BufferAddress,
 
@@ -134,7 +134,7 @@ impl Models {
         mesh_index
     }
 
-    pub fn get_mesh_index(&self, mesh: Arc<render::Model>) -> Option<ModelIndex> {
+    pub fn get_mesh_index(&self, mesh: Arc<render::Mesh>) -> Option<MeshIndex> {
         let mesh_ref = MeshRef(mesh);
 
         self.written_meshes
@@ -230,7 +230,7 @@ impl Models {
     }
 }
 
-impl ModelIndex {
+impl MeshIndex {
     pub fn draw<'rpass>(
         self,
         resources: &scene::RenderResources<'rpass>,

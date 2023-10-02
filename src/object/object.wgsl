@@ -97,6 +97,11 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let normal = normalize(tangent_matrix * normal_rgb);
 
     out.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+    if out.albedo.a <= 0.1 {
+        discard;
+    }
+
     out.normal = vec4<f32>(normal, 0.0);
     out.position = vec4<f32>(in.position, 0.0);
 

@@ -78,8 +78,8 @@ pub mod render {
     mod vertex;
     pub use vertex::Vertex;
 
-    mod model;
-    pub use model::Model;
+    mod mesh;
+    pub use mesh::Mesh;
 
     pub mod traits;
 }

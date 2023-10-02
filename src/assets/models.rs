@@ -20,7 +20,7 @@ use std::sync::Arc;
 use crate::render;
 
 pub struct Models {
-    models: slab::Slab<Vec<Arc<render::Model>>>,
+    models: slab::Slab<Vec<Arc<render::Mesh>>>,
     ids: HashMap<camino::Utf8PathBuf, usize>,
 }
 
@@ -35,7 +35,7 @@ impl Models {
         }
     }
 
-    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> (Id, &[Arc<render::Model>]) {
+    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> (Id, &[Arc<render::Mesh>]) {
         self.load_with_options(path, &tobj::GPU_LOAD_OPTIONS)
     }
 
@@ -43,14 +43,14 @@ impl Models {
         &mut self,
         path: impl AsRef<camino::Utf8Path>,
         load_options: &tobj::LoadOptions,
-    ) -> (Id, &[Arc<render::Model>]) {
+    ) -> (Id, &[Arc<render::Mesh>]) {
         let path = path.as_ref();
 
         let id = self.ids.entry(path.to_path_buf()).or_insert_with(|| {
             let (models, _) = tobj::load_obj(path, load_options).expect("failed to load models");
             let models = models
                 .into_iter()
-                .map(render::Model::from_tobj_model)
+                .map(|m| render::Mesh::from_tobj_mesh(m.mesh))
                 .map(Arc::new)
                 .collect();
 
@@ -64,11 +64,11 @@ impl Models {
         (Id(*id), models)
     }
 
-    pub fn get_expect(&self, id: Id) -> &[Arc<render::Model>] {
+    pub fn get_expect(&self, id: Id) -> &[Arc<render::Mesh>] {
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&[Arc<render::Model>]> {
+    pub fn get(&self, id: Id) -> Option<&[Arc<render::Mesh>]> {
         self.models.get(id.0).map(Vec::as_slice)
     }
 

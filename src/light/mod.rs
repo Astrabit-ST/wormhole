@@ -22,7 +22,7 @@ mod shader;
 
 pub struct Light {
     transform: render::Transform,
-    model_index: scene::ModelIndex,
+    mesh_index: scene::MeshIndex,
 
     constant: f32,
     linear: f32,
@@ -39,7 +39,7 @@ pub enum LightType {
 }
 
 pub struct PreparedObject {
-    model_index: scene::ModelIndex,
+    model_index: scene::MeshIndex,
     transform_index: i32,
 
     color: render::Color,
@@ -59,7 +59,7 @@ pub struct PreparedLight {
 }
 
 impl Light {
-    pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Models) -> Self {
+    pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Meshes) -> Self {
         let transform = render::Transform::from_position(glam::vec3(2.0, 3.0, 0.0));
 
         let (_, models) = assets.models.load("assets/meshes/ico_sphere.obj");
@@ -75,7 +75,7 @@ impl Light {
 
         Light {
             transform,
-            model_index,
+            mesh_index: model_index,
 
             constant,
             linear,
@@ -99,7 +99,7 @@ impl Light {
         let color = self.diffuse;
 
         PreparedObject {
-            model_index: self.model_index,
+            model_index: self.mesh_index,
             transform_index,
 
             color,

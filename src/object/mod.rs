@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::assets;
+
 use crate::render;
 use crate::scene;
 
@@ -24,12 +24,12 @@ pub use textures::Textures;
 
 pub struct Object {
     pub transform: render::Transform,
-    pub model_index: scene::ModelIndex,
+    pub mesh_index: scene::MeshIndex,
     pub textures: textures::Textures,
 }
 
 pub struct Prepared<'obj> {
-    model_index: scene::ModelIndex,
+    model_index: scene::MeshIndex,
     textures: &'obj textures::Textures,
 
     transform_index: i32,
@@ -38,12 +38,12 @@ pub struct Prepared<'obj> {
 impl Object {
     pub fn new(
         transform: render::Transform,
-        model_index: scene::ModelIndex,
+        model_index: scene::MeshIndex,
         textures: textures::Textures,
     ) -> Self {
         Self {
             transform,
-            model_index,
+            mesh_index: model_index,
             textures,
         }
     }
@@ -52,7 +52,7 @@ impl Object {
         let transform_index = resources.transforms.push(&self.transform) as i32;
 
         Prepared {
-            model_index: self.model_index,
+            model_index: self.mesh_index,
             transform_index,
             textures: &self.textures,
         }
