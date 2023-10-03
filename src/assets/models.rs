@@ -25,8 +25,24 @@ pub struct Models {
 }
 
 pub struct Model {
-    pub meshes: Vec<Arc<render::Mesh>>,
     pub name: String,
+    pub meshes: Vec<Arc<render::Mesh>>,
+}
+
+impl Model {
+    pub fn from_gltf(
+        gltf_id: assets::GltfId,
+        mesh: gltf::Mesh<'_>,
+        buffers: &[gltf::buffer::Data],
+    ) -> Self {
+        let name = mesh.name().unwrap_or("unamed model").to_string();
+        let meshes = mesh
+            .primitives()
+            .map(|primitive| render::Mesh::from_gltf_primitive(gltf_id, primitive, buffers))
+            .map(Arc::new)
+            .collect();
+        Self { name, meshes }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,6 +84,10 @@ impl Models {
         Self {
             models: HashMap::new(),
         }
+    }
+
+    pub fn insert(&mut self, id: Id, model: Model) -> Option<Model> {
+        self.models.insert(id, model)
     }
 
     pub fn load_tobj(&mut self, path: impl AsRef<camino::Utf8Path>) -> Id {

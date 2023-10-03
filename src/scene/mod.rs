@@ -19,7 +19,6 @@ use crate::input;
 use crate::render;
 
 use crate::light;
-use crate::material;
 use crate::object;
 
 use itertools::Itertools;
@@ -85,6 +84,8 @@ pub struct RenderResources<'res> {
 
     pub vertex_buffer: &'res wgpu::Buffer,
     pub index_buffer: &'res wgpu::Buffer,
+
+    pub assets: &'res assets::Loader,
 }
 
 impl Scene {
@@ -93,7 +94,15 @@ impl Scene {
 
         let mut meshes = Meshes::new(render_state);
 
-        let objects = vec![];
+        let mut objects = vec![];
+
+        for path in [
+            "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
+            "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
+            "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",
+        ] {
+            Self::load_gltf(render_state, path, &mut meshes, assets, &mut objects)
+        }
 
         let lights = vec![light::Light::new(assets, &mut meshes)];
 
@@ -113,6 +122,43 @@ impl Scene {
         }
     }
 
+    fn load_gltf(
+        render_state: &render::State,
+        path: impl AsRef<camino::Utf8Path>,
+        meshes: &mut Meshes,
+        assets: &mut assets::Loader,
+        objects: &mut Vec<object::Object>,
+    ) {
+        let path = path.as_ref();
+        assets.load_gltf(render_state, path);
+
+        let gltf_id = assets::GltfId::from_path(path);
+        let gltf = assets.gltf.get_expect(gltf_id);
+
+        fn process_node(
+            gltf_id: assets::GltfId,
+            node: gltf::Node<'_>,
+            meshes: &mut Meshes,
+            assets: &assets::Loader,
+            objects: &mut Vec<object::Object>,
+        ) {
+            let transform = node.transform().into();
+            if let Some(mesh) = node.mesh() {
+                let model = assets
+                    .models
+                    .get_expect(assets::ModelId::Gltf(gltf_id, mesh.index()));
+                let object = object::Object::new(meshes, transform, model);
+                objects.push(object);
+            }
+            for node in node.children() {
+                process_node(gltf_id, node, meshes, assets, objects)
+            }
+        }
+        for node in gltf.document.nodes() {
+            process_node(gltf_id, node, meshes, assets, objects);
+        }
+    }
+
     pub fn update(&mut self, render_state: &render::State, input_state: &input::State) {
         let before = std::mem::replace(&mut self.last_update, Instant::now());
         let dt = (self.last_update - before).as_secs_f32();
@@ -128,7 +174,7 @@ impl Scene {
     // Every frame, scene resources are prepared (written to CPU-side buffers) that are then uploaded to the GPU (finish).
     //
     // These resources are used for a basic geometry pass, and then a super basic lighting pass is performed.
-    pub fn render(&mut self, render_state: &render::State) {
+    pub fn render(&mut self, render_state: &render::State, assets: &assets::Loader) {
         let mut encoder =
             render_state
                 .wgpu
@@ -188,6 +234,8 @@ impl Scene {
 
             vertex_buffer,
             index_buffer,
+
+            assets,
         };
 
         render_pass.set_pipeline(&render_state.pipelines.object);

@@ -28,6 +28,7 @@ pub mod assets {
     pub use loader::Loader;
 
     mod gltf;
+    pub use gltf::File as GltfFile;
     pub use gltf::Gltf;
     pub use gltf::Id as GltfId;
 
@@ -39,6 +40,10 @@ pub mod assets {
     pub use models::Id as ModelId;
     pub use models::Model;
     pub use models::Models;
+
+    mod materials;
+    pub use materials::Id as MaterialId;
+    pub use materials::Materials;
 }
 
 pub mod input {

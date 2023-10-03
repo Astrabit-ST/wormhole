@@ -168,6 +168,119 @@ impl Texture {
         Self::from_bytes(render_state, &image, image.width(), image.height(), format)
     }
 
+    pub fn from_gltf(
+        render_state: &render::State,
+        gltf_texture: gltf::Texture<'_>,
+        images: &[gltf::image::Data],
+    ) -> Self {
+        let image_data = images[gltf_texture.source().index()].clone();
+        let image = match image_data.format {
+            gltf::image::Format::R8G8B8 => image::DynamicImage::ImageRgb8(
+                image::ImageBuffer::from_vec(
+                    image_data.width,
+                    image_data.height,
+                    image_data.pixels,
+                )
+                .expect("image pixels too small"),
+            ),
+            gltf::image::Format::R8G8B8A8 => image::DynamicImage::ImageRgba8(
+                image::ImageBuffer::from_vec(
+                    image_data.width,
+                    image_data.height,
+                    image_data.pixels,
+                )
+                .expect("image pixels too small"),
+            ),
+            _ => todo!(),
+        };
+        let image = image.into_rgba8();
+
+        let texture = render_state.wgpu.device.create_texture_with_data(
+            &render_state.wgpu.queue,
+            &wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: image.width(),
+                    height: image.height(),
+                    depth_or_array_layers: 1,
+                },
+                dimension: wgpu::TextureDimension::D2,
+                mip_level_count: 1,
+                sample_count: 1,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            &image,
+        );
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let address_mode_u = match gltf_texture.sampler().wrap_s() {
+            gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+            gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
+            gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
+        };
+        let address_mode_v = match gltf_texture.sampler().wrap_t() {
+            gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+            gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
+            gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
+        };
+
+        let (min_filter, mipmap_filter) = gltf_texture
+            .sampler()
+            .min_filter()
+            .map(|f| match f {
+                gltf::texture::MinFilter::Nearest => {
+                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
+                }
+                gltf::texture::MinFilter::Linear => {
+                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
+                }
+                gltf::texture::MinFilter::NearestMipmapNearest => {
+                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
+                }
+                gltf::texture::MinFilter::LinearMipmapNearest => {
+                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Nearest)
+                }
+                gltf::texture::MinFilter::NearestMipmapLinear => {
+                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear)
+                }
+                gltf::texture::MinFilter::LinearMipmapLinear => {
+                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
+                }
+            })
+            .unwrap_or((wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest));
+        let mag_filter = gltf_texture
+            .sampler()
+            .mag_filter()
+            .map(|f| match f {
+                gltf::texture::MagFilter::Nearest => wgpu::FilterMode::Nearest,
+                gltf::texture::MagFilter::Linear => wgpu::FilterMode::Linear,
+            })
+            .unwrap_or(wgpu::FilterMode::Nearest);
+
+        let sampler = render_state
+            .wgpu
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u,
+                address_mode_v,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                mag_filter,
+                min_filter,
+                mipmap_filter,
+                ..Default::default()
+            });
+
+        Self {
+            texture,
+            view,
+            sampler,
+        }
+    }
+
     pub fn resize_to_screen(&mut self, render_state: &render::State) {
         let texture = render_state
             .wgpu

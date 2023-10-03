@@ -31,7 +31,7 @@ fn main() {
 
     let mut input_state = wormhole::input::State::new(&window);
 
-    let mut assets = wormhole::assets::Loader::new();
+    let mut assets = wormhole::assets::Loader::new(&render_state);
 
     let mut scene = wormhole::scene::Scene::new(&render_state, &mut assets);
 
@@ -59,7 +59,7 @@ fn main() {
 
             scene.update(&render_state, &input_state);
 
-            scene.render(&render_state);
+            scene.render(&render_state, &assets);
         }
     });
 }

@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::assets;
 use crate::render;
 use crate::scene;
 
@@ -42,6 +43,8 @@ pub struct MeshIndex {
 
     pub index_offset: wgpu::BufferAddress,
     pub index_count: wgpu::BufferAddress,
+
+    pub material_id: assets::MaterialId,
 }
 
 struct MeshRef(Arc<render::Mesh>);
@@ -130,6 +133,8 @@ impl Meshes {
 
             index_offset: self.unwritten_index_offset,
             index_count: mesh.indices.len() as wgpu::BufferAddress,
+
+            material_id: mesh.material_id,
         };
 
         self.unwritten_vertex_offset += mesh_index.vertex_count * VERTEX_SIZE;
@@ -244,15 +249,29 @@ impl Meshes {
 impl MeshIndex {
     pub fn draw<'rpass>(
         self,
-        _: &scene::RenderResources<'rpass>,
+        render_resources: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
-        let vertex_start = self.vertex_offset / VERTEX_SIZE;
-        let base_vertex = -(vertex_start as i32);
+        let vertex_start = self.vertex_offset;
+        let vertex_end = self.vertex_offset + (self.vertex_count * VERTEX_SIZE);
 
-        let index_start = (self.index_offset / INDEX_SIZE) as u32;
-        let index_end = index_start + self.index_count as u32;
+        let index_start = self.index_offset;
+        let index_end = self.index_offset + (self.index_count * INDEX_SIZE);
 
-        render_pass.draw_indexed(index_start..index_end, base_vertex, 0..1)
+        if let Some(material) = render_resources.assets.materials.get(self.material_id) {
+            render_pass.set_bind_group(2, &material.bind_group, &[]);
+        }
+
+        render_pass.set_vertex_buffer(
+            0,
+            render_resources
+                .vertex_buffer
+                .slice(vertex_start..vertex_end),
+        );
+        render_pass.set_index_buffer(
+            render_resources.index_buffer.slice(index_start..index_end),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
     }
 }

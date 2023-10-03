@@ -16,18 +16,20 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use std::collections::HashMap;
 
-pub struct Gltf {
-    documents: HashMap<Id, File>,
-}
+use crate::assets;
+use crate::material;
 
-pub struct File {
-    pub document: gltf::Document,
-    pub buffers: Vec<gltf::buffer::Data>,
-    pub images: Vec<gltf::image::Data>,
+pub struct Materials {
+    pub(super) materials: HashMap<Id, material::Material>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id(u64);
+pub enum Id {
+    // Path id
+    Path(u64),
+    // Gltf id, mesh id
+    Gltf(assets::GltfId, usize),
+}
 
 impl Id {
     pub fn from_path(path: impl AsRef<camino::Utf8Path>) -> Self {
@@ -38,7 +40,11 @@ impl Id {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         path.hash(&mut hasher);
 
-        Self(hasher.finish())
+        Self::Path(hasher.finish())
+    }
+
+    pub fn from_gltf(gltf_id: assets::GltfId, texture_id: usize) -> Self {
+        Self::Gltf(gltf_id, texture_id)
     }
 }
 
@@ -51,38 +57,27 @@ where
     }
 }
 
-impl Gltf {
-    pub fn new() -> Self {
+impl Materials {
+    pub(super) fn new() -> Self {
         Self {
-            documents: HashMap::new(),
+            materials: HashMap::new(),
         }
     }
 
-    pub fn load(&mut self, path: impl AsRef<camino::Utf8Path>) -> Id {
-        let path = path.as_ref();
-        let id = Id::from_path(path);
-
-        self.documents.entry(id).or_insert_with(|| {
-            let (document, buffers, images) = gltf::import(path).expect("failed to open gltf file");
-            File {
-                document,
-                buffers,
-                images,
-            }
-        });
-
-        id
+    pub fn insert(&mut self, id: Id, material: material::Material) -> Option<material::Material> {
+        self.materials.insert(id, material)
     }
 
-    pub fn get_expect(&self, id: Id) -> &File {
+    pub fn get_expect(&self, id: Id) -> &material::Material {
+        println!("{id:#?}");
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&File> {
-        self.documents.get(&id)
+    pub fn get(&self, id: Id) -> Option<&material::Material> {
+        self.materials.get(&id)
     }
 
     pub fn keep_ids(&mut self, ids: &[Id]) {
-        self.documents.retain(|i, _| ids.contains(i))
+        self.materials.retain(|i, _| ids.contains(i))
     }
 }

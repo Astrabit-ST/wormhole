@@ -29,7 +29,7 @@ impl super::Object {
                     bind_group_layouts: &[
                         &render_state.bind_groups.camera,
                         &render_state.bind_groups.transform,
-                        &render_state.bind_groups.object_textures,
+                        &render_state.bind_groups.material,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,

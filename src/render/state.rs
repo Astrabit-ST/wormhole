@@ -47,7 +47,7 @@ pub struct BindGroups {
     pub camera: wgpu::BindGroupLayout,
     pub transform: wgpu::BindGroupLayout,
     pub light: wgpu::BindGroupLayout,
-    pub object_textures: wgpu::BindGroupLayout,
+    pub material: wgpu::BindGroupLayout,
     pub gbuffer: wgpu::BindGroupLayout,
 }
 
@@ -135,7 +135,7 @@ impl GpuCreated {
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
         let light = light::PreparedLight::create_bind_group_layout(&self);
-        let material_textures = material::Textures::create_bind_group_layout(&self);
+        let material = material::Material::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
 
         BindGroupsCreated {
@@ -144,7 +144,7 @@ impl GpuCreated {
                 camera,
                 transform,
                 light,
-                object_textures: material_textures,
+                material,
                 gbuffer,
             },
         }

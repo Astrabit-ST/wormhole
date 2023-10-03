@@ -15,40 +15,61 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::assets;
+use crate::material;
+use crate::render;
 
 pub struct Loader {
     pub textures: assets::Textures,
     pub models: assets::Models,
+    pub materials: assets::Materials,
     pub gltf: assets::Gltf,
 }
 
 impl Loader {
-    pub fn new() -> Self {
-        let textures = assets::textures::Textures::new();
+    pub fn new(render_state: &render::State) -> Self {
+        let textures = assets::textures::Textures::new(render_state);
         let models = assets::Models::new();
+        let materials = assets::Materials::new();
         let gltf = assets::Gltf::new();
 
         Self {
             textures,
             models,
+            materials,
             gltf,
         }
     }
 
-    pub fn load_gltf(&mut self, path: impl AsRef<camino::Utf8Path>) {
+    pub fn load_gltf(&mut self, render_state: &render::State, path: impl AsRef<camino::Utf8Path>) {
         let gltf_id = self.gltf.load(path);
 
-        let gltf::Gltf { document, blob } = self.gltf.get_expect(gltf_id).clone();
-        let buffers =
-            gltf::import_buffers(&document, None, blob).expect("failed to import gltf buffers");
-        let images =
-            gltf::import_images(&document, None, &buffers).expect("failed to import gltf images");
+        let assets::GltfFile {
+            document,
+            buffers,
+            images,
+        } = self.gltf.get_expect(gltf_id);
 
-        // FIXME: handle samplers and textures better?
+        // FIXME: avoid recreating images multiple times?
         for texture in document.textures() {
             let texture_id = texture.index();
+            let texture = render::Texture::from_gltf(render_state, texture, images);
+            self.textures
+                .insert(assets::TextureId::Gltf(gltf_id, texture_id), texture);
+        }
 
-            let image = &images[texture.source().index()];
+        for material in document.materials() {
+            let material_id = material.index().unwrap_or_default();
+            let material =
+                material::Material::from_gltf(render_state, gltf_id, &self.textures, material);
+            self.materials
+                .insert(assets::MaterialId::Gltf(gltf_id, material_id), material);
+        }
+
+        for mesh in document.meshes() {
+            let mesh_id = mesh.index();
+            let model = assets::Model::from_gltf(gltf_id, mesh, buffers);
+            self.models
+                .insert(assets::ModelId::Gltf(gltf_id, mesh_id), model);
         }
     }
 }

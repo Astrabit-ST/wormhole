@@ -21,6 +21,7 @@ use crate::render;
 
 pub struct Textures {
     pub(super) textures: HashMap<Id, render::Texture>,
+    null_texture: render::Texture,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -58,10 +59,35 @@ where
 }
 
 impl Textures {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(render_state: &render::State) -> Self {
+        let null_texture = render::Texture::new(
+            render_state,
+            wgpu::Extent3d {
+                width: 256,
+                height: 256,
+                depth_or_array_layers: 1,
+            },
+            render::TextureFormat::GENERIC,
+        );
         Self {
             textures: HashMap::new(),
+            null_texture,
         }
+    }
+
+    pub fn insert_image(
+        &mut self,
+        render_state: &render::State,
+        id: Id,
+        image: image::DynamicImage,
+    ) -> Option<render::Texture> {
+        let texture =
+            render::Texture::from_image(render_state, &image, render::TextureFormat::GENERIC);
+        self.insert(id, texture)
+    }
+
+    pub fn insert(&mut self, id: Id, texture: render::Texture) -> Option<render::Texture> {
+        self.textures.insert(id, texture)
     }
 
     pub fn load_from_path(
@@ -95,6 +121,10 @@ impl Textures {
 
     pub fn get(&self, id: Id) -> Option<&render::Texture> {
         self.textures.get(&id)
+    }
+
+    pub fn null_texture(&self) -> &render::Texture {
+        &self.null_texture
     }
 
     pub fn keep_ids(&mut self, ids: &[Id]) {

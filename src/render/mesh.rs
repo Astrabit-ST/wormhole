@@ -14,17 +14,22 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::assets;
 use crate::render;
 use itertools::Itertools;
 
 pub struct Mesh {
     pub vertices: Vec<render::Vertex>,
     pub indices: Vec<u32>,
-    pub material_id: usize,
+    pub material_id: assets::MaterialId,
 }
 
 impl Mesh {
-    pub fn new(vertices: &[render::Vertex], indices: &[u32], material_id: usize) -> Self {
+    pub fn new(
+        vertices: &[render::Vertex],
+        indices: &[u32],
+        material_id: assets::MaterialId,
+    ) -> Self {
         Self {
             vertices: vertices.to_vec(),
             indices: indices.to_vec(),
@@ -60,11 +65,12 @@ impl Mesh {
         Self {
             vertices,
             indices: mesh.indices,
-            material_id: mesh.material_id.unwrap_or_default(),
+            material_id: assets::MaterialId::Path(0), // FIXME
         }
     }
 
     pub fn from_gltf_primitive(
+        gltf_id: assets::GltfId,
         primitive: gltf::Primitive<'_>,
         buffers: &[gltf::buffer::Data],
     ) -> Self {
@@ -102,7 +108,10 @@ impl Mesh {
         Self {
             vertices,
             indices,
-            material_id: primitive.material().index().unwrap_or_default(),
+            material_id: assets::MaterialId::Gltf(
+                gltf_id,
+                primitive.material().index().unwrap_or_default(),
+            ),
         }
     }
 

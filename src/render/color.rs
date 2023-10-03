@@ -68,3 +68,15 @@ impl From<Color> for glam::Vec3 {
         value.color.truncate()
     }
 }
+
+impl From<[f32; 3]> for Color {
+    fn from(value: [f32; 3]) -> Self {
+        glam::Vec3::from_array(value).into()
+    }
+}
+
+impl From<[f32; 4]> for Color {
+    fn from(value: [f32; 4]) -> Self {
+        glam::Vec4::from_array(value).into()
+    }
+}

@@ -66,14 +66,25 @@ fn vs_main(
 
 // Fragment shader
 
-@group(2) @binding(0)
-var t_diffuse: texture_2d<f32>;
+struct Material {
+    base_color: vec4<f32>,
+    emissive: vec4<f32>,
+    metallic: f32,
+    roughness: f32,
+    flags: u32,
+}
+
 @group(2) @binding(1)
+var<uniform> material: Material;
+
+@group(2) @binding(1)
+var t_diffuse: texture_2d<f32>;
+@group(2) @binding(2)
 var s_diffuse: sampler;
 
-@group(2) @binding(2)
-var t_normal: texture_2d<f32>;
 @group(2) @binding(3)
+var t_normal: texture_2d<f32>;
+@group(2) @binding(4)
 var s_normal: sampler;
 
 struct FragmentOutput {
