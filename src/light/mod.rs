@@ -60,15 +60,15 @@ pub struct PreparedLight {
 
 impl Light {
     pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Meshes) -> Self {
-        let transform = render::Transform::from_position(glam::vec3(0.0, 200.0, 0.0));
+        let transform = render::Transform::from_position(glam::vec3(0.0, 5.0, 0.0));
 
         let id = assets.models.load_tobj("assets/meshes/ico_sphere.obj");
         let model = assets.models.get_expect(id);
         let model_index = scene_models.upload_mesh(model.meshes[0].clone());
 
         let constant = 1.0;
-        let linear = 0.007;
-        let quadratic = 0.0002;
+        let linear = 0.07;
+        let quadratic = 0.017;
 
         let ambient = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
         let diffuse = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));

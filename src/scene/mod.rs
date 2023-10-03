@@ -97,6 +97,7 @@ impl Scene {
         let mut objects = vec![];
 
         for path in [
+            // "assets/Helmet/glTF/DamagedHelmet.gltf",
             "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
             "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
             "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",

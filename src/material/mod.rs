@@ -201,7 +201,7 @@ impl render::traits::Bindable for Material {
                     },
                     count: None,
                 },
-                // Albedo
+                // Base color
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,

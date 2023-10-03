@@ -17,9 +17,13 @@
 use crate::render;
 
 pub struct Buffer {
-    pub albedo: render::Texture,
-    pub normal: render::Texture,
-    pub position: render::Texture,
+    // Alpha channel contains material roughness
+    pub color_roughness: render::Texture,
+    // Alpha channel contains material metallicity
+    pub normal_metallicity: render::Texture,
+    // Alpha channel contains occlusion
+    pub position_occlusion: render::Texture,
+    pub emissive: render::Texture,
 
     pub depth: render::Texture,
 
@@ -28,9 +32,13 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new(render_state: &render::State) -> Self {
-        let albedo = render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
-        let normal = render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
-        let position =
+        let color_roughness =
+            render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
+        let normal_metallicity =
+            render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
+        let position_occlusion =
+            render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
+        let emissive =
             render::Texture::new_screen_size(render_state, render::TextureFormat::GBUFFER);
 
         let depth = render::Texture::new_screen_size(render_state, render::TextureFormat::DEPTH);
@@ -44,35 +52,44 @@ impl Buffer {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&albedo.view),
+                        resource: wgpu::BindingResource::TextureView(&color_roughness.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&albedo.sampler),
+                        resource: wgpu::BindingResource::Sampler(&color_roughness.sampler),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&normal.view),
+                        resource: wgpu::BindingResource::TextureView(&normal_metallicity.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&normal.sampler),
+                        resource: wgpu::BindingResource::Sampler(&normal_metallicity.sampler),
                     },
                     wgpu::BindGroupEntry {
                         binding: 4,
-                        resource: wgpu::BindingResource::TextureView(&position.view),
+                        resource: wgpu::BindingResource::TextureView(&position_occlusion.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 5,
-                        resource: wgpu::BindingResource::Sampler(&position.sampler),
+                        resource: wgpu::BindingResource::Sampler(&position_occlusion.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 6,
+                        resource: wgpu::BindingResource::TextureView(&emissive.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: wgpu::BindingResource::Sampler(&emissive.sampler),
                     },
                 ],
             });
 
         Self {
-            albedo,
-            normal,
-            position,
+            color_roughness,
+            normal_metallicity,
+            position_occlusion,
+            emissive,
 
             depth,
 
@@ -81,9 +98,10 @@ impl Buffer {
     }
 
     pub fn resize_to_screen(&mut self, render_state: &render::State) {
-        self.albedo.resize_to_screen(render_state);
-        self.normal.resize_to_screen(render_state);
-        self.position.resize_to_screen(render_state);
+        self.color_roughness.resize_to_screen(render_state);
+        self.normal_metallicity.resize_to_screen(render_state);
+        self.position_occlusion.resize_to_screen(render_state);
+        self.emissive.resize_to_screen(render_state);
 
         self.bind_group = render_state
             .wgpu
@@ -94,27 +112,35 @@ impl Buffer {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&self.albedo.view),
+                        resource: wgpu::BindingResource::TextureView(&self.color_roughness.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&self.albedo.sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.color_roughness.sampler),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&self.normal.view),
+                        resource: wgpu::BindingResource::TextureView(&self.normal_metallicity.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.normal.sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.normal_metallicity.sampler),
                     },
                     wgpu::BindGroupEntry {
                         binding: 4,
-                        resource: wgpu::BindingResource::TextureView(&self.position.view),
+                        resource: wgpu::BindingResource::TextureView(&self.position_occlusion.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 5,
-                        resource: wgpu::BindingResource::Sampler(&self.position.sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.position_occlusion.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 6,
+                        resource: wgpu::BindingResource::TextureView(&self.emissive.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: wgpu::BindingResource::Sampler(&self.emissive.sampler),
                     },
                 ],
             });
@@ -122,10 +148,26 @@ impl Buffer {
         self.depth.resize_to_screen(render_state);
     }
 
-    pub fn as_color_attachments(&self) -> [Option<wgpu::RenderPassColorAttachment<'_>>; 3] {
+    pub fn as_color_attachments(&self) -> [Option<wgpu::RenderPassColorAttachment<'_>>; 4] {
         [
             Some(wgpu::RenderPassColorAttachment {
-                view: &self.albedo.view,
+                view: &self.color_roughness.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: true,
+                },
+            }),
+            Some(wgpu::RenderPassColorAttachment {
+                view: &self.normal_metallicity.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: true,
+                },
+            }),
+            Some(wgpu::RenderPassColorAttachment {
+                view: &self.position_occlusion.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -133,18 +175,10 @@ impl Buffer {
                 },
             }),
             Some(wgpu::RenderPassColorAttachment {
-                view: &self.normal.view,
+                view: &self.emissive.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: true,
-                },
-            }),
-            Some(wgpu::RenderPassColorAttachment {
-                view: &self.position.view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: true,
                 },
             }),
@@ -179,7 +213,7 @@ impl render::traits::Bindable for Buffer {
         wgpu::BindGroupLayoutDescriptor {
             label: Some("wormhole gbuffer bind group layout"),
             entries: &[
-                // Albedo
+                // Color & Roughness
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -196,7 +230,7 @@ impl render::traits::Bindable for Buffer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // Normal
+                // Normal & Metallicity
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -213,7 +247,7 @@ impl render::traits::Bindable for Buffer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // Position
+                // Position & Occlusion
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -226,6 +260,23 @@ impl render::traits::Bindable for Buffer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                // Emissive
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 7,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,

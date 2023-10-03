@@ -72,6 +72,11 @@ impl super::Object {
                             blend: None,
                             write_mask: wgpu::ColorWrites::ALL,
                         }),
+                        Some(wgpu::ColorTargetState {
+                            format: render::TextureFormat::GBUFFER.format,
+                            blend: None,
+                            write_mask: wgpu::ColorWrites::ALL,
+                        }),
                     ],
                 }),
                 primitive: wgpu::PrimitiveState {

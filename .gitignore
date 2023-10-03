@@ -1,3 +1,4 @@
 /target
-assets/intel-sponza
-assets/Sponza
+!assets/meshes/**
+!assets/textures/**
+assets
