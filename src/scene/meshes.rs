@@ -252,26 +252,12 @@ impl MeshIndex {
         render_resources: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
-        let vertex_start = self.vertex_offset;
-        let vertex_end = self.vertex_offset + (self.vertex_count * VERTEX_SIZE);
-
-        let index_start = self.index_offset;
-        let index_end = self.index_offset + (self.index_count * INDEX_SIZE);
+        let base_vertex = (self.vertex_offset / VERTEX_SIZE) as i32;
 
         if let Some(material) = render_resources.assets.materials.get(self.material_id) {
             render_pass.set_bind_group(2, &material.bind_group, &[]);
         }
 
-        render_pass.set_vertex_buffer(
-            0,
-            render_resources
-                .vertex_buffer
-                .slice(vertex_start..vertex_end),
-        );
-        render_pass.set_index_buffer(
-            render_resources.index_buffer.slice(index_start..index_end),
-            wgpu::IndexFormat::Uint32,
-        );
-        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
+        render_pass.draw_indexed(0..(self.index_count as u32), base_vertex, 0..1)
     }
 }

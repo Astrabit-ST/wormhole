@@ -17,10 +17,10 @@
 use std::collections::HashMap;
 
 use crate::assets;
-use crate::material;
+use crate::render;
 
 pub struct Materials {
-    pub(super) materials: HashMap<Id, material::Material>,
+    pub(super) materials: HashMap<Id, render::Material>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -64,16 +64,16 @@ impl Materials {
         }
     }
 
-    pub fn insert(&mut self, id: Id, material: material::Material) -> Option<material::Material> {
+    pub fn insert(&mut self, id: Id, material: render::Material) -> Option<render::Material> {
         self.materials.insert(id, material)
     }
 
-    pub fn get_expect(&self, id: Id) -> &material::Material {
+    pub fn get_expect(&self, id: Id) -> &render::Material {
         println!("{id:#?}");
         self.get(id).expect("asset id nonexistent")
     }
 
-    pub fn get(&self, id: Id) -> Option<&material::Material> {
+    pub fn get(&self, id: Id) -> Option<&render::Material> {
         self.materials.get(&id)
     }
 

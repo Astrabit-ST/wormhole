@@ -14,9 +14,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::light;
-use crate::material;
-use crate::object;
 use crate::render;
 
 pub struct GpuCreated {
@@ -134,8 +131,8 @@ impl GpuCreated {
 
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
-        let light = light::PreparedLight::create_bind_group_layout(&self);
-        let material = material::Material::create_bind_group_layout(&self);
+        let light = render::light::PreparedLight::create_bind_group_layout(&self);
+        let material = render::Material::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
 
         BindGroupsCreated {
@@ -155,9 +152,9 @@ impl BindGroupsCreated {
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
     pub fn initialize_render_pipelines(self) -> State {
-        let object = object::Object::create_render_pipeline(&self);
-        let light = light::Light::create_light_render_pipeline(&self);
-        let light_object = light::Light::create_light_object_render_pipeline(&self);
+        let object = render::Object::create_render_pipeline(&self);
+        let light = render::Light::create_light_render_pipeline(&self);
+        let light_object = render::Light::create_light_object_render_pipeline(&self);
 
         State {
             wgpu: self.wgpu,

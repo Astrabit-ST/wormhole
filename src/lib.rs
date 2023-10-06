@@ -92,12 +92,15 @@ pub mod render {
     pub use mesh::Mesh;
 
     pub mod traits;
+
+    pub mod object;
+    pub use object::Object;
+
+    pub mod material;
+    pub use material::Material;
+
+    pub mod light;
+    pub use light::Light;
 }
-
-pub mod light;
-
-pub mod material;
-
-pub mod object;
 
 pub mod scene;

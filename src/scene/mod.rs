@@ -18,9 +18,6 @@ use crate::assets;
 use crate::input;
 use crate::render;
 
-use crate::light;
-use crate::object;
-
 use itertools::Itertools;
 use std::time::Instant;
 
@@ -28,8 +25,8 @@ mod meshes;
 pub use meshes::{MeshIndex, Meshes};
 
 pub struct Scene {
-    objects: Vec<object::Object>,
-    lights: Vec<light::Light>,
+    objects: Vec<render::Object>,
+    lights: Vec<render::Light>,
 
     camera: render::Camera,
     buffers: Buffers,
@@ -40,7 +37,7 @@ pub struct Scene {
 
 pub struct Buffers {
     transforms: render::buffer::dynamic::Buffer<render::Transform>,
-    lights: render::buffer::dynamic::Buffer<light::PreparedLight>,
+    lights: render::buffer::dynamic::Buffer<render::light::PreparedLight>,
     camera: render::buffer::single::Buffer<render::Camera>,
 
     gbuffer: render::buffer::geometry::Buffer,
@@ -73,7 +70,7 @@ impl Buffers {
 
 pub struct PrepareResources<'buf> {
     pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
-    pub lights: render::buffer::dynamic::Writer<'buf, light::PreparedLight>,
+    pub lights: render::buffer::dynamic::Writer<'buf, render::light::PreparedLight>,
     pub camera: render::buffer::single::Writer<'buf, render::Camera>,
 }
 
@@ -96,16 +93,11 @@ impl Scene {
 
         let mut objects = vec![];
 
-        for path in [
-            // "assets/Helmet/glTF/DamagedHelmet.gltf",
-            "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
-            "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
-            "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",
-        ] {
+        for path in ["assets/FlightHelmet/glTF/FlightHelmet.gltf"] {
             Self::load_gltf(render_state, path, &mut meshes, assets, &mut objects)
         }
 
-        let lights = vec![light::Light::new(assets, &mut meshes)];
+        let lights = vec![render::Light::new(assets, &mut meshes)];
 
         let buffers = Buffers::new(render_state);
 
@@ -128,7 +120,7 @@ impl Scene {
         path: impl AsRef<camino::Utf8Path>,
         meshes: &mut Meshes,
         assets: &mut assets::Loader,
-        objects: &mut Vec<object::Object>,
+        objects: &mut Vec<render::Object>,
     ) {
         let path = path.as_ref();
         assets.load_gltf(render_state, path);
@@ -141,14 +133,14 @@ impl Scene {
             node: gltf::Node<'_>,
             meshes: &mut Meshes,
             assets: &assets::Loader,
-            objects: &mut Vec<object::Object>,
+            objects: &mut Vec<render::Object>,
         ) {
             let transform = node.transform().into();
             if let Some(mesh) = node.mesh() {
                 let model = assets
                     .models
                     .get_expect(assets::ModelId::Gltf(gltf_id, mesh.index()));
-                let object = object::Object::new(meshes, transform, model);
+                let object = render::Object::new(meshes, transform, model);
                 objects.push(object);
             }
             for node in node.children() {

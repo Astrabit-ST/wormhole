@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::assets;
-use crate::material;
 use crate::render;
 
 pub struct Loader {
@@ -60,7 +59,7 @@ impl Loader {
         for material in document.materials() {
             let material_id = material.index().unwrap_or_default();
             let material =
-                material::Material::from_gltf(render_state, gltf_id, &self.textures, material);
+                render::Material::from_gltf(render_state, gltf_id, &self.textures, material);
             self.materials
                 .insert(assets::MaterialId::Gltf(gltf_id, material_id), material);
         }
