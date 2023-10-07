@@ -51,7 +51,7 @@ impl super::Object {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[render::Vertex::desc()],
+                    buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,

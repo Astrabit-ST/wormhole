@@ -24,8 +24,8 @@ pub struct Material {
 }
 
 #[repr(C)]
-#[derive(bytemuck::Pod, bytemuck::Zeroable)]
 #[derive(Debug, Clone, Copy)]
+#[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Data {
     base_color: render::Color,
     emissive: render::Color,

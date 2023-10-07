@@ -56,7 +56,7 @@ impl super::Light {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[render::Vertex::desc()],
+                    buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -126,7 +126,7 @@ impl super::Light {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[render::Vertex::desc()],
+                    buffers: &[], // FIXME
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,

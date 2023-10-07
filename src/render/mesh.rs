@@ -14,56 +14,137 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::assets;
-use crate::render;
 use itertools::Itertools;
 
+use crate::assets;
+use crate::render;
+
+#[derive(Clone, Debug)]
 pub struct Mesh {
-    pub vertices: Vec<render::Vertex>,
+    pub parts: MeshParts,
     pub indices: Vec<u32>,
     pub material_id: assets::MaterialId,
 }
 
+#[derive(Clone, Debug)]
+pub struct MeshParts {
+    pub positions: Vec<glam::Vec3>,
+
+    pub normals: Option<Vec<glam::Vec3>>,
+    pub tex_coords: Option<Vec<glam::Vec2>>,
+    pub colors: Option<Vec<render::Color>>,
+    pub tangents: Option<Vec<glam::Vec4>>,
+}
+
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug)]
+    pub struct VertexFormat: u32 {
+        const HAS_VTX_NORMALS   = 0b0000_0001;
+        const HAS_TEX_COORDS    = 0b0000_0010;
+        const HAS_VTX_COLOR     = 0b0000_0100;
+        const HAS_VTX_TANGENT   = 0b0000_1000;
+    }
+}
+
+impl MeshParts {
+    pub fn vertex_format(&self) -> VertexFormat {
+        let mut format = VertexFormat::empty();
+        format.set(VertexFormat::HAS_TEX_COORDS, self.tex_coords.is_some());
+        format.set(VertexFormat::HAS_VTX_COLOR, self.colors.is_some());
+        format.set(VertexFormat::HAS_VTX_TANGENT, self.tangents.is_some());
+        format
+    }
+}
+
 impl Mesh {
-    pub fn new(
-        vertices: &[render::Vertex],
-        indices: &[u32],
-        material_id: assets::MaterialId,
-    ) -> Self {
+    pub fn new(parts: &MeshParts, indices: &[u32], material_id: assets::MaterialId) -> Self {
         Self {
-            vertices: vertices.to_vec(),
+            parts: parts.clone(),
             indices: indices.to_vec(),
             material_id,
         }
     }
+}
 
-    /// The mesh must be loaded with `triangluate` and `single_index` set to true.
-    pub fn from_tobj_mesh(mesh: tobj::Mesh) -> Self {
-        // Create a list of vertices from the mesh.
-        let mut tex_coords = bytemuck::cast_slice(&mesh.texcoords).iter().copied();
-        let mut normals = bytemuck::cast_slice(&mesh.normals).iter().copied();
-
-        let mut vertices = bytemuck::cast_slice(&mesh.positions)
-            .iter()
-            .copied()
-            .map(|position| {
-                let tex_coords = tex_coords.next().unwrap_or_default();
-                let normal = normals.next().unwrap_or_default();
-
-                render::Vertex {
-                    position,
-                    tex_coords,
-                    normal,
-
-                    ..Default::default()
-                }
-            })
+impl MeshParts {
+    pub fn from_gltf_reader<'reader, F>(reader: gltf::mesh::Reader<'reader, 'reader, F>) -> Self
+    where
+        F: Clone + Fn(gltf::Buffer<'reader>) -> Option<&'reader [u8]>,
+    {
+        let positions = reader
+            .read_positions()
+            .expect("no positions provided")
+            .map(glam::Vec3::from_array)
             .collect_vec();
 
-        Self::calculate_bitangent_tangent(&mesh.indices, &mut vertices);
+        let normals = reader
+            .read_normals()
+            .map(|n| n.map(glam::Vec3::from_array).collect_vec());
+
+        let tex_coords = reader
+            .read_tex_coords(0)
+            .map(|t| t.into_f32().map(glam::Vec2::from_array).collect_vec());
+
+        let colors = reader
+            .read_colors(0)
+            .map(|c| c.into_rgba_f32().map(render::Color::from).collect_vec());
+
+        let tangents = reader
+            .read_tangents()
+            .map(|t| t.map(glam::Vec4::from_array).collect_vec());
 
         Self {
-            vertices,
+            positions,
+            normals,
+            tex_coords,
+            colors,
+            tangents,
+        }
+    }
+
+    pub fn approximate_tangents(&mut self, indices: &[u32]) {
+        self.tangents.get_or_insert_with(|| todo!());
+    }
+}
+
+impl Mesh {
+    /// The mesh must be loaded with `triangluate` and `single_index` set to true.
+    pub fn from_tobj_mesh(mut mesh: tobj::Mesh) -> Self {
+        mesh.positions.shrink_to_fit();
+        let positions = bytemuck::cast_vec(mesh.positions);
+
+        mesh.normals.shrink_to_fit();
+        let normals = if mesh.normals.is_empty() {
+            None
+        } else {
+            Some(bytemuck::cast_vec(mesh.normals))
+        };
+
+        mesh.texcoords.shrink_to_fit();
+        let tex_coords = if mesh.texcoords.is_empty() {
+            None
+        } else {
+            Some(bytemuck::cast_vec(mesh.texcoords))
+        };
+
+        mesh.vertex_color.shrink_to_fit();
+        let colors = if mesh.vertex_color.is_empty() {
+            None
+        } else {
+            Some(bytemuck::cast_vec(mesh.vertex_color))
+        };
+
+        let mut parts = MeshParts {
+            positions,
+            normals,
+            tex_coords,
+            colors,
+            tangents: None,
+        };
+        parts.approximate_tangents(&mesh.indices);
+
+        Self {
+            parts,
             indices: mesh.indices,
             material_id: assets::MaterialId::Path(0), // FIXME
         }
@@ -76,37 +157,13 @@ impl Mesh {
     ) -> Self {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-        let positions = reader.read_positions().unwrap().map(glam::Vec3::from_array);
-
-        let mut normals = reader.read_normals().unwrap().map(glam::Vec3::from_array);
-
-        let mut tex_coords = reader
-            .read_tex_coords(0)
-            .unwrap()
-            .into_f32()
-            .map(glam::Vec2::from_array);
-
-        let mut vertices = positions
-            .map(|position| {
-                let tex_coords = tex_coords.next().unwrap_or_default();
-                let normal = normals.next().unwrap_or_default();
-
-                render::Vertex {
-                    position,
-                    tex_coords,
-                    normal,
-
-                    ..Default::default()
-                }
-            })
-            .collect_vec();
-
         let indices = reader.read_indices().unwrap().into_u32().collect_vec();
 
-        Self::calculate_bitangent_tangent(&indices, &mut vertices);
+        let mut parts = MeshParts::from_gltf_reader(reader);
+        parts.approximate_tangents(&indices);
 
         Self {
-            vertices,
+            parts,
             indices,
             material_id: assets::MaterialId::Gltf(
                 gltf_id,
@@ -114,60 +171,10 @@ impl Mesh {
             ),
         }
     }
-
-    fn calculate_bitangent_tangent(indices: &[u32], vertices: &mut [render::Vertex]) {
-        let mut triangles_included = vec![0; vertices.len()];
-
-        for i in indices.chunks(3) {
-            let v0 = vertices[i[0] as usize];
-            let v1 = vertices[i[1] as usize];
-            let v2 = vertices[i[2] as usize];
-
-            let delta_pos1 = v1.position - v0.position;
-            let delta_pos2 = v2.position - v0.position;
-
-            let delta_uv1 = v1.tex_coords - v0.tex_coords;
-            let delta_uv2 = v2.tex_coords - v0.tex_coords;
-
-            let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
-            let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
-            // We flip the bitangent to enable right-handed normal
-            // maps with wgpu texture coordinate system
-            let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * -r;
-
-            // We'll use the same tangent/bitangent for each vertex in the triangle
-            vertices[i[0] as usize].tangent = tangent + v0.tangent;
-            vertices[i[1] as usize].tangent = tangent + v1.tangent;
-            vertices[i[2] as usize].tangent = tangent + v2.tangent;
-
-            vertices[i[0] as usize].bitangent = bitangent + v0.bitangent;
-            vertices[i[1] as usize].bitangent = bitangent + v1.bitangent;
-            vertices[i[2] as usize].bitangent = bitangent + v2.bitangent;
-
-            triangles_included[i[0] as usize] += 1;
-            triangles_included[i[1] as usize] += 1;
-            triangles_included[i[2] as usize] += 1;
-        }
-        for (i, n) in triangles_included.into_iter().enumerate() {
-            let denom = 1.0 / n as f32;
-            let v = &mut vertices[i];
-            v.tangent *= denom;
-            v.bitangent *= denom;
-        }
-    }
 }
 
 impl From<tobj::Mesh> for Mesh {
     fn from(value: tobj::Mesh) -> Self {
         Self::from_tobj_mesh(value)
-    }
-}
-
-impl std::fmt::Debug for Mesh {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Mesh")
-            .field("vertices", &self.vertices.len())
-            .field("indices", &self.indices.len())
-            .finish()
     }
 }

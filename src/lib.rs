@@ -69,38 +69,38 @@ pub mod render {
         pub mod geometry;
     }
 
-    mod color;
-    pub use color::Color;
-
-    pub mod state;
-    pub use state::State;
-
     mod camera;
     pub use camera::Camera;
 
-    mod transform;
-    pub use transform::Transform;
+    mod color;
+    pub use color::Color;
+
+    mod instance;
+    pub use instance::Instance;
+
+    mod mesh;
+    pub use mesh::Mesh;
+
+    pub mod state;
+    pub use state::State;
 
     pub mod texture;
     pub use texture::Texture;
     pub use texture::TextureFormat;
 
-    mod vertex;
-    pub use vertex::Vertex;
-
-    mod mesh;
-    pub use mesh::Mesh;
-
     pub mod traits;
 
-    pub mod object;
-    pub use object::Object;
+    mod transform;
+    pub use transform::Transform;
 
     pub mod material;
     pub use material::Material;
 
     pub mod light;
     pub use light::Light;
+
+    pub mod object;
+    pub use object::Object;
 }
 
 pub mod scene;

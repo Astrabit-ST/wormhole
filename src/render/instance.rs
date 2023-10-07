@@ -15,30 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
-#[repr(C)]
-#[derive(bytemuck::Pod, bytemuck::Zeroable)]
-#[derive(Clone, Copy, Debug, Default)]
-#[derive(PartialEq)]
-pub struct Vertex {
-    pub position: glam::Vec3,
-    pub tex_coords: glam::Vec2,
-
-    pub normal: glam::Vec3,
-    pub tangent: glam::Vec3,
-    pub bitangent: glam::Vec3,
+pub struct Instance {
+    vertex_offset: u32,
 }
 
-impl Vertex {
+impl Instance {
     pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        const ATTRS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
-            // Position, Texture coords
-            0 => Float32x3, 1 => Float32x2,
-            // Normal, Tangent, Bitangent
-            2 => Float32x3, 3 => Float32x3, 4 => Float32x3];
+        const ATTRS: &[wgpu::VertexAttribute] = &wgpu::vertex_attr_array![0 => Uint32];
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &ATTRS,
+            array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: ATTRS,
         }
     }
 }

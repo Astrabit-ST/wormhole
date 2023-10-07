@@ -335,42 +335,43 @@ impl Scene {
     fn create_screen_vertex_buffer(render_state: &render::State) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
 
+        #[repr(C)]
+        #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+        struct Vertex {
+            position: glam::Vec3,
+            tex_coords: glam::Vec2,
+        }
+
         let screen_mesh = &[
             // 2
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(1.0, -1.0, 0.0),
                 tex_coords: glam::vec2(1.0, 1.0),
-                ..Default::default()
             },
             // 1
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(1.0, 1.0, 0.0),
                 tex_coords: glam::vec2(1.0, 0.0),
-                ..Default::default()
             },
             // 0
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(-1.0, 1.0, 0.0),
                 tex_coords: glam::vec2(0.0, 0.0),
-                ..Default::default()
             },
             // 2
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(1.0, -1.0, 0.0),
                 tex_coords: glam::vec2(1.0, 1.0),
-                ..Default::default()
             },
             // 0
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(-1.0, 1.0, 0.0),
                 tex_coords: glam::vec2(0.0, 0.0),
-                ..Default::default()
             },
             // 3
-            render::Vertex {
+            Vertex {
                 position: glam::vec3(-1.0, -1.0, 0.0),
                 tex_coords: glam::vec2(0.0, 1.0),
-                ..Default::default()
             },
         ];
 

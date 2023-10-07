@@ -23,18 +23,26 @@ use crate::scene;
 
 #[derive(Debug)]
 pub struct Meshes {
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    position_buffer: Buffer<glam::Vec3>,
+    normal_buffer: Buffer<glam::Vec3>,
+    tex_coord_buffer: Buffer<glam::Vec2>,
+    color_buffer: Buffer<render::Color>,
+    tangent_buffer: Buffer<glam::Vec4>,
+    index_buffer: Buffer<u32>,
 
-    written_vertex_len: wgpu::BufferAddress,
-    written_index_len: wgpu::BufferAddress,
-
-    unwritten_vertex_offset: wgpu::BufferAddress,
-    unwritten_index_offset: wgpu::BufferAddress,
-
-    written_meshes: HashMap<MeshRef, MeshIndex>,
-    unwritten_meshes: HashMap<MeshRef, MeshIndex>,
+    seen_meshes: HashMap<MeshRef, MeshIndex>,
 }
+
+#[derive(Debug)]
+struct Buffer<T> {
+    internal_buffer: wgpu::Buffer,
+
+    written_len: wgpu::BufferAddress,
+
+    unwritten: Vec<T>,
+}
+
+struct MeshRef(Arc<render::Mesh>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MeshIndex {
@@ -46,8 +54,6 @@ pub struct MeshIndex {
 
     pub material_id: assets::MaterialId,
 }
-
-struct MeshRef(Arc<render::Mesh>);
 
 impl std::fmt::Debug for MeshRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -72,75 +78,103 @@ impl PartialEq for MeshRef {
 
 impl Eq for MeshRef {}
 
-const VERTEX_SIZE: wgpu::BufferAddress =
-    std::mem::size_of::<render::Vertex>() as wgpu::BufferAddress;
-const INDEX_SIZE: wgpu::BufferAddress = std::mem::size_of::<u32>() as wgpu::BufferAddress;
+impl<T> Buffer<T>
+where
+    T: bytemuck::Pod + bytemuck::Zeroable,
+{
+    const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as wgpu::BufferAddress;
 
-impl Meshes {
-    pub fn new(render_state: &render::State) -> Self {
-        let vertex_buffer = render_state
+    pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
+        let internal_buffer = render_state
             .wgpu
             .device
             .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("wormhole scene vertices"),
-                size: VERTEX_SIZE * 2_u64.pow(13),
-                usage: wgpu::BufferUsages::VERTEX
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        let index_buffer = render_state
-            .wgpu
-            .device
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("wormhole scene vertices"),
-                size: INDEX_SIZE * 2_u64.pow(14),
-                usage: wgpu::BufferUsages::INDEX
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
+                label: Some("wormhole scene meshes internal buffer"),
+                size: Self::SIZE * 2_u64.pow(12),
+                usage: usage | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
 
         Self {
-            vertex_buffer,
-            index_buffer,
+            internal_buffer,
+            written_len: 0,
+            unwritten: Vec::with_capacity(2048),
+        }
+    }
 
-            unwritten_vertex_offset: 0,
-            unwritten_index_offset: 0,
+    pub fn queue_write(&mut self, values: &[T]) -> wgpu::BufferAddress {
+        // Calculate offset based on current written len + the amount of unwritten values * the size of a value
+        // Offset is in bytes
+        let offset = self.written_len + (self.unwritten.len() as wgpu::BufferAddress * Self::SIZE);
+        self.unwritten.extend(values);
+        offset
+    }
 
-            written_vertex_len: 0,
-            written_index_len: 0,
+    // returns true if the buffer has been resized (this is used to recreate bind groups)
+    pub fn write_unwritten(
+        &mut self,
+        render_state: &render::State,
+        encoder: &mut wgpu::CommandEncoder,
+    ) -> bool {
+        // Calculate the final buffer size in bytes
+        let final_buffer_size =
+            self.written_len + (self.unwritten.len() as wgpu::BufferAddress * Self::SIZE);
+        let needs_resize = final_buffer_size > self.internal_buffer.size();
+        // If the buffer is too small, create a new one and copy the original data over
+        if needs_resize {
+            let new_buffer = render_state
+                .wgpu
+                .device
+                .create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("wormhole scene meshes internal buffer"),
+                    size: final_buffer_size / 2 + final_buffer_size,
+                    usage: self.internal_buffer.usage(),
+                    mapped_at_creation: false,
+                });
+            encoder.copy_buffer_to_buffer(
+                &self.internal_buffer,
+                0,
+                &new_buffer,
+                0,
+                self.written_len,
+            );
+            self.internal_buffer = new_buffer;
+        }
 
-            written_meshes: HashMap::with_capacity(16),
-            unwritten_meshes: HashMap::with_capacity(16),
+        render_state.wgpu.queue.write_buffer(
+            &self.internal_buffer,
+            self.written_len,
+            bytemuck::cast_slice(&self.unwritten),
+        );
+
+        self.unwritten.clear();
+        self.written_len = final_buffer_size;
+
+        needs_resize
+    }
+}
+
+impl Meshes {
+    pub fn new(render_state: &render::State) -> Self {
+        Self {
+            position_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            normal_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            tex_coord_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            color_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            tangent_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            index_buffer: Buffer::new(render_state, wgpu::BufferUsages::INDEX),
+
+            seen_meshes: HashMap::with_capacity(16),
         }
     }
 
     pub fn upload_mesh(&mut self, mesh: Arc<render::Mesh>) -> MeshIndex {
-        if let Some(index) = self.get_mesh_index(Arc::clone(&mesh)) {
+        let mesh_ref = MeshRef(mesh);
+        if let Some(index) = self.seen_meshes.get(&mesh_ref).copied() {
             return index;
         }
 
-        log::info!(
-            "Preparing to write mesh {mesh:#?} at {} and {}",
-            self.unwritten_vertex_offset,
-            self.unwritten_index_offset
-        );
-
-        let mesh_index = MeshIndex {
-            vertex_offset: self.unwritten_vertex_offset,
-            vertex_count: mesh.vertices.len() as wgpu::BufferAddress,
-
-            index_offset: self.unwritten_index_offset,
-            index_count: mesh.indices.len() as wgpu::BufferAddress,
-
-            material_id: mesh.material_id,
-        };
-
-        self.unwritten_vertex_offset += mesh_index.vertex_count * VERTEX_SIZE;
-        self.unwritten_index_offset += mesh_index.index_count * INDEX_SIZE;
-
-        self.unwritten_meshes.insert(MeshRef(mesh), mesh_index);
+        log::info!("Preparing to write mesh {mesh:#?}");
 
         mesh_index
     }
@@ -148,10 +182,7 @@ impl Meshes {
     pub fn get_mesh_index(&self, mesh: Arc<render::Mesh>) -> Option<MeshIndex> {
         let mesh_ref = MeshRef(mesh);
 
-        self.written_meshes
-            .get(&mesh_ref)
-            .or(self.unwritten_meshes.get(&mesh_ref))
-            .copied()
+        self.seen_meshes.get(&mesh_ref).copied()
     }
 
     pub fn write_unwritten(
@@ -159,90 +190,14 @@ impl Meshes {
         render_state: &render::State,
         encoder: &mut wgpu::CommandEncoder,
     ) {
-        if self.unwritten_vertex_offset > self.vertex_buffer.size() {
-            log::info!(
-                "Copying vertices to new buffer: {:#?}",
-                0..(self.written_index_len / VERTEX_SIZE)
-            );
+        let mut recreate_bind_group = false;
+        recreate_bind_group |= self.position_buffer.write_unwritten(render_state, encoder);
+        recreate_bind_group |= self.normal_buffer.write_unwritten(render_state, encoder);
+        recreate_bind_group |= self.tex_coord_buffer.write_unwritten(render_state, encoder);
+        recreate_bind_group |= self.color_buffer.write_unwritten(render_state, encoder);
+        recreate_bind_group |= self.tangent_buffer.write_unwritten(render_state, encoder);
 
-            let new_buffer = render_state
-                .wgpu
-                .device
-                .create_buffer(&wgpu::BufferDescriptor {
-                    label: Some("wormhole scene vertices"),
-                    size: self.unwritten_vertex_offset + self.unwritten_vertex_offset / 2,
-                    usage: wgpu::BufferUsages::VERTEX
-                        | wgpu::BufferUsages::COPY_SRC
-                        | wgpu::BufferUsages::COPY_DST,
-                    mapped_at_creation: false,
-                });
-            encoder.copy_buffer_to_buffer(
-                &self.vertex_buffer,
-                0,
-                &new_buffer,
-                0,
-                self.written_vertex_len,
-            );
-            self.vertex_buffer = new_buffer;
-        }
-
-        if self.unwritten_index_offset > self.index_buffer.size() {
-            log::info!(
-                "Copying indices to new buffer: {:#?}",
-                0..(self.written_index_len / INDEX_SIZE)
-            );
-            let new_buffer = render_state
-                .wgpu
-                .device
-                .create_buffer(&wgpu::BufferDescriptor {
-                    label: Some("wormhole scene indices"),
-                    size: self.unwritten_index_offset + self.unwritten_index_offset / 2,
-                    usage: wgpu::BufferUsages::INDEX
-                        | wgpu::BufferUsages::COPY_SRC
-                        | wgpu::BufferUsages::COPY_DST,
-                    mapped_at_creation: false,
-                });
-            encoder.copy_buffer_to_buffer(
-                &self.index_buffer,
-                0,
-                &new_buffer,
-                0,
-                self.written_index_len,
-            );
-            self.index_buffer = new_buffer;
-        }
-
-        for (mesh, index) in self.unwritten_meshes.drain() {
-            log::info!(
-                "Writing mesh {:#?} at {} and {}",
-                mesh,
-                index.vertex_offset,
-                index.index_offset
-            );
-
-            render_state.wgpu.queue.write_buffer(
-                &self.vertex_buffer,
-                index.vertex_offset,
-                bytemuck::cast_slice(&mesh.0.vertices),
-            );
-            render_state.wgpu.queue.write_buffer(
-                &self.index_buffer,
-                index.index_offset,
-                bytemuck::cast_slice(&mesh.0.indices),
-            );
-
-            assert_eq!(
-                None,
-                self.written_meshes.insert(mesh, index),
-                "There should be no written mesh duplicates"
-            );
-        }
-        self.written_vertex_len = self.unwritten_vertex_offset;
-        self.written_index_len = self.unwritten_index_offset;
-    }
-
-    pub fn as_buffers(&self) -> (&wgpu::Buffer, &wgpu::Buffer) {
-        (&self.vertex_buffer, &self.index_buffer)
+        self.index_buffer.write_unwritten(render_state, encoder);
     }
 }
 
@@ -259,5 +214,26 @@ impl MeshIndex {
         }
 
         render_pass.draw_indexed(0..(self.index_count as u32), base_vertex, 0..1)
+    }
+}
+
+impl render::traits::Bindable for Meshes {
+    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("scene meshes bind group layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        };
+
+    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
+        &render_state.bind_groups.transform
     }
 }
