@@ -69,7 +69,6 @@ impl Materials {
     }
 
     pub fn get_expect(&self, id: Id) -> &render::Material {
-        println!("{id:#?}");
         self.get(id).expect("asset id nonexistent")
     }
 

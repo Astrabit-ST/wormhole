@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use crate::assets;
 use crate::render;
-use crate::scene;
 
 #[derive(Debug)]
 pub struct Meshes {
@@ -314,22 +313,6 @@ impl Meshes {
             &self.vertex_buffer_bind_group,
             &self.index_buffer.internal_buffer,
         )
-    }
-}
-
-impl MeshIndex {
-    pub fn draw<'rpass>(
-        self,
-        render_resources: &scene::RenderResources<'rpass>,
-        render_pass: &mut wgpu::RenderPass<'rpass>,
-    ) {
-        if let Some(material) = render_resources.assets.materials.get(self.material_id) {
-            render_pass.set_bind_group(2, &material.bind_group, &[]);
-        }
-
-        // why don't we need to pass a base_vertex? in the shader code we pass all the vertex offsets anyway, so offsetting the index isn't necessary.
-        // index '0' isn't really vertex 0.
-        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
     }
 }
 

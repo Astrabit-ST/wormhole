@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
+use crate::scene;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -27,7 +28,7 @@ pub struct Instance {
     pub color_offset: u32,
     pub tangent_offset: u32,
 
-    pub flags: render::VertexFormat,
+    pub mesh_flags: render::VertexFormat,
 
     pub transform_index: u32,
 }
@@ -39,6 +40,20 @@ impl Instance {
             array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: ATTRS,
+        }
+    }
+
+    pub fn from_mesh_transform_indices(mesh_index: scene::MeshIndex, transform_index: u32) -> Self {
+        Self {
+            position_offset: mesh_index.position_offset as u32,
+            normal_offset: mesh_index.normal_offset as u32,
+            tex_coord_offset: mesh_index.tex_coord_offset as u32,
+            color_offset: mesh_index.color_offset as u32,
+            tangent_offset: mesh_index.tangent_offset as u32,
+
+            mesh_flags: mesh_index.mesh_flags,
+
+            transform_index,
         }
     }
 }

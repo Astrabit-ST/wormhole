@@ -191,7 +191,15 @@ impl Texture {
                 )
                 .expect("image pixels too small"),
             ),
-            _ => todo!(),
+            gltf::image::Format::R8 => image::DynamicImage::ImageLuma8(
+                image::ImageBuffer::from_vec(
+                    image_data.width,
+                    image_data.height,
+                    image_data.pixels,
+                )
+                .expect("image pixels too small"),
+            ),
+            f => panic!("unhandled texture format {f:#?}"),
         };
         let image = image.into_rgba8();
 

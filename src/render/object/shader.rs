@@ -32,10 +32,7 @@ impl super::Object {
                         &render_state.bind_groups.transform,
                         &render_state.bind_groups.material,
                     ],
-                    push_constant_ranges: &[wgpu::PushConstantRange {
-                        stages: wgpu::ShaderStages::VERTEX,
-                        range: 0..4,
-                    }],
+                    push_constant_ranges: &[],
                 });
 
         let shader = render_state

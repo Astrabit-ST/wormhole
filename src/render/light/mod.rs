@@ -39,8 +39,9 @@ pub enum LightType {
 }
 
 pub struct PreparedObject {
-    model_index: scene::MeshIndex,
-    transform_index: i32,
+    instance_index: u32,
+    index_count: u32,
+    index_offset: u32,
 
     color: render::Color,
 }
@@ -95,13 +96,18 @@ impl Light {
             scale: glam::Vec3::splat(0.1),
             ..self.transform
         };
-        let transform_index = resources.transforms.push(&transform) as i32;
+        let transform_index = resources.transforms.push(&transform) as u32;
+
+        let instance =
+            render::Instance::from_mesh_transform_indices(self.mesh_index, transform_index);
+        let instance_index = resources.instances.push(instance) as u32;
 
         let color = self.diffuse;
 
         PreparedObject {
-            model_index: self.mesh_index,
-            transform_index,
+            instance_index,
+            index_count: self.mesh_index.index_count as u32,
+            index_offset: self.mesh_index.index_offset as u32,
 
             color,
         }
@@ -124,41 +130,25 @@ impl Light {
 impl PreparedObject {
     pub fn draw<'rpass>(
         self,
-        resources: &scene::RenderResources<'rpass>,
+        _: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
-        #[repr(C)]
-        #[derive(Clone, Copy)]
-        #[derive(bytemuck::Pod, bytemuck::Zeroable)]
-        struct PushConstants {
-            transform_index: i32,
-            _pad: [u8; 12],
-
-            color: render::Color,
-        }
-        let push_constants = PushConstants {
-            transform_index: self.transform_index,
-            _pad: [0; 12],
-
-            color: self.color,
-        };
-        let push_constants_bytes = bytemuck::bytes_of(&push_constants);
-
         render_pass.push_debug_group("wormhole light object draw");
 
         {
             render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                &push_constants_bytes[0..4],
-            );
-            render_pass.set_push_constants(
                 wgpu::ShaderStages::FRAGMENT,
-                12,
-                &push_constants_bytes[12..],
+                0,
+                bytemuck::bytes_of(&self.color),
             );
 
-            self.model_index.draw(resources, render_pass);
+            let index_start = self.index_offset / std::mem::size_of::<u32>() as u32;
+            let index_end = index_start + self.index_count;
+
+            let instance_start = self.instance_index;
+            let instance_end = self.instance_index + 1;
+
+            render_pass.draw_indexed(index_start..index_end, 0, instance_start..instance_end);
         }
 
         render_pass.pop_debug_group();

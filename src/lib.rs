@@ -67,6 +67,8 @@ pub mod render {
         pub mod single;
 
         pub mod geometry;
+
+        pub mod instances;
     }
 
     mod camera;

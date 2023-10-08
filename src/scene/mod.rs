@@ -40,6 +40,8 @@ pub struct Buffers {
     lights: render::buffer::dynamic::Buffer<render::light::PreparedLight>,
     camera: render::buffer::single::Buffer<render::Camera>,
 
+    instances: render::buffer::instances::Buffer,
+
     gbuffer: render::buffer::geometry::Buffer,
     screen_vertices: wgpu::Buffer,
 }
@@ -54,6 +56,9 @@ impl Buffers {
 
         let camera = render::buffer::single::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
+        let instances =
+            render::buffer::instances::Buffer::new(render_state, wgpu::BufferUsages::empty());
+
         let gbuffer = render::buffer::geometry::Buffer::new(render_state);
 
         let screen_vertices = Scene::create_screen_vertex_buffer(render_state);
@@ -62,6 +67,7 @@ impl Buffers {
             transforms,
             lights,
             camera,
+            instances,
             gbuffer,
             screen_vertices,
         }
@@ -72,6 +78,7 @@ pub struct PrepareResources<'buf> {
     pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
     pub lights: render::buffer::dynamic::Writer<'buf, render::light::PreparedLight>,
     pub camera: render::buffer::single::Writer<'buf, render::Camera>,
+    pub instances: render::buffer::instances::Writer<'buf>,
 }
 
 pub struct RenderResources<'res> {
@@ -81,6 +88,7 @@ pub struct RenderResources<'res> {
 
     pub vertex_bind_group: &'res wgpu::BindGroup,
     pub index_buffer: &'res wgpu::Buffer,
+    pub instance_buffer: &'res wgpu::Buffer,
 
     pub assets: &'res assets::Loader,
 }
@@ -93,7 +101,7 @@ impl Scene {
 
         let mut objects = vec![];
 
-        for path in ["assets/FlightHelmet/glTF/FlightHelmet.gltf"] {
+        for path in ["assets/ToyCar/glTF/ToyCar.gltf"] {
             Self::load_gltf(render_state, path, &mut meshes, assets, &mut objects)
         }
 
@@ -187,6 +195,7 @@ impl Scene {
             transforms: self.buffers.transforms.start_write(),
             lights: self.buffers.lights.start_write(),
             camera: self.buffers.camera.start_write(),
+            instances: self.buffers.instances.start_write(),
         };
 
         let prepared_objects = self
@@ -227,12 +236,14 @@ impl Scene {
 
             vertex_bind_group,
             index_buffer,
+            instance_buffer: resources.instances.finish(render_state),
 
             assets,
         };
 
         render_pass.set_pipeline(&render_state.pipelines.object);
 
+        render_pass.set_vertex_buffer(0, render_resources.instance_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
         render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);
@@ -310,6 +321,7 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.light_object);
 
+        render_pass.set_vertex_buffer(0, render_resources.instance_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
         render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);

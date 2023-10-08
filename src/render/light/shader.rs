@@ -41,16 +41,10 @@ impl super::Light {
                         &render_state.bind_groups.camera,
                         &render_state.bind_groups.transform,
                     ],
-                    push_constant_ranges: &[
-                        wgpu::PushConstantRange {
-                            stages: wgpu::ShaderStages::VERTEX,
-                            range: 0..4,
-                        },
-                        wgpu::PushConstantRange {
-                            stages: wgpu::ShaderStages::FRAGMENT,
-                            range: 12..32,
-                        },
-                    ],
+                    push_constant_ranges: &[wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::FRAGMENT,
+                        range: 0..16,
+                    }],
                 });
 
         let shader = render_state

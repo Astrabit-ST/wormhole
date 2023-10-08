@@ -27,8 +27,16 @@ pub struct Object {
 }
 
 pub struct Prepared {
-    transform_index: i32,
-    mesh_indices: Vec<scene::MeshIndex>,
+    meshes: Vec<PreparedMesh>,
+}
+
+pub struct PreparedMesh {
+    instance_index: u32,
+
+    index_count: u32,
+    index_offset: u32,
+
+    material_id: assets::MaterialId,
 }
 
 impl Object {
@@ -50,11 +58,25 @@ impl Object {
     }
 
     pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared {
-        let transform_index = resources.transforms.push(&self.transform) as i32;
+        let transform_index = resources.transforms.push(&self.transform) as u32;
 
         Prepared {
-            transform_index,
-            mesh_indices: self.mesh_indices.clone(),
+            meshes: self
+                .mesh_indices
+                .iter()
+                .copied()
+                .map(|mesh_index| {
+                    let instance =
+                        render::Instance::from_mesh_transform_indices(mesh_index, transform_index);
+                    let instance_index = resources.instances.push(instance) as u32;
+                    PreparedMesh {
+                        instance_index,
+                        index_count: mesh_index.index_count as u32,
+                        index_offset: mesh_index.index_offset as u32,
+                        material_id: mesh_index.material_id,
+                    }
+                })
+                .collect(),
         }
     }
 }
@@ -68,14 +90,17 @@ impl Prepared {
         render_pass.push_debug_group("wormhole object draw");
 
         {
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                bytemuck::bytes_of(&self.transform_index),
-            );
+            for mesh in self.meshes {
+                let material = resources.assets.materials.get_expect(mesh.material_id);
+                render_pass.set_bind_group(3, &material.bind_group, &[]);
 
-            for mesh_index in self.mesh_indices {
-                mesh_index.draw(resources, render_pass);
+                let index_start = mesh.index_offset / std::mem::size_of::<u32>() as u32;
+                let index_end = index_start + mesh.index_count;
+
+                let instance_start = mesh.instance_index;
+                let instance_end = mesh.instance_index + 1;
+
+                render_pass.draw_indexed(index_start..index_end, 0, instance_start..instance_end);
             }
         }
 
