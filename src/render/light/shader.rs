@@ -17,6 +17,16 @@
 use crate::render;
 
 impl super::Light {
+    pub const fn screen_vertex_desc() -> wgpu::VertexBufferLayout<'static> {
+        const ATTRS: &[wgpu::VertexAttribute] =
+            &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
+        wgpu::VertexBufferLayout {
+            array_stride: 20 as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: ATTRS,
+        }
+    }
+
     pub fn create_light_object_render_pipeline(
         render_state: &render::state::BindGroupsCreated,
     ) -> wgpu::RenderPipeline {
@@ -25,8 +35,9 @@ impl super::Light {
                 .wgpu
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("object render pipeline layout"),
+                    label: Some("light object render pipeline layout"),
                     bind_group_layouts: &[
+                        &render_state.bind_groups.vertex_data,
                         &render_state.bind_groups.camera,
                         &render_state.bind_groups.transform,
                     ],
@@ -56,7 +67,7 @@ impl super::Light {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[],
+                    buffers: &[render::Instance::desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -126,7 +137,7 @@ impl super::Light {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[], // FIXME
+                    buffers: &[Self::screen_vertex_desc()], // FIXME
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,

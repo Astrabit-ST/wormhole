@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::render;
+use crate::scene;
 
 pub struct GpuCreated {
     pub wgpu: GpuState,
@@ -46,6 +47,7 @@ pub struct BindGroups {
     pub light: wgpu::BindGroupLayout,
     pub material: wgpu::BindGroupLayout,
     pub gbuffer: wgpu::BindGroupLayout,
+    pub vertex_data: wgpu::BindGroupLayout,
 }
 
 pub struct RenderPipelines {
@@ -134,6 +136,7 @@ impl GpuCreated {
         let light = render::light::PreparedLight::create_bind_group_layout(&self);
         let material = render::Material::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
+        let vertex_data = scene::Meshes::create_bind_group_layout(&self);
 
         BindGroupsCreated {
             wgpu: self.wgpu,
@@ -143,6 +146,7 @@ impl GpuCreated {
                 light,
                 material,
                 gbuffer,
+                vertex_data,
             },
         }
     }

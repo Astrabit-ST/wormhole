@@ -27,6 +27,7 @@ impl super::Object {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("object render pipeline layout"),
                     bind_group_layouts: &[
+                        &render_state.bind_groups.vertex_data,
                         &render_state.bind_groups.camera,
                         &render_state.bind_groups.transform,
                         &render_state.bind_groups.material,
@@ -51,7 +52,7 @@ impl super::Object {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[],
+                    buffers: &[render::Instance::desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,

@@ -1,13 +1,25 @@
 // Vertex shader
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coords: vec2<f32>,
+struct InstanceInput {
+    @location(0) position_offset: u32,
+    @location(1) normal_offset: u32,
+    @location(2) tex_coord_offset: u32,
+    @location(3) color_offset: u32,
+    @location(4) tangent_offset: u32,
 
-    @location(2) normal: vec3<f32>,
-    @location(3) tangent: vec3<f32>,
-    @location(4) bitangent: vec3<f32>,
-};
+    @location(5) format_flags: u32,
+
+    @location(6) transform_index: u32,
+}
+
+const HAS_VTX_NORMALS   = 0x0001u;
+const HAS_TEX_COORDS    = 0x0002u;
+const HAS_VTX_COLOR     = 0x0004u;
+const HAS_VTX_TANGENT   = 0x0008u;
+
+fn extract_flag(data: u32, flag: u32) -> bool {
+    return bool(data & flag);
+}
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -25,41 +37,92 @@ struct Camera {
     view_pos: vec4<f32>,
     view_proj: mat4x4<f32>,
 }
-@group(0) @binding(0)
-var<uniform> camera: Camera;
 
 struct Transform {
     obj_proj: mat4x4<f32>,
     normal_proj: mat4x4<f32>,
 }
+
+@group(0) @binding(0)
+var<storage> position_data: array<f32>;
+@group(0) @binding(1)
+var<storage> normal_data: array<f32>;
+@group(0) @binding(2)
+var<storage> tex_coord_data: array<f32>;
+@group(0) @binding(3)
+var<storage> color_data: array<f32>;
+@group(0) @binding(4)
+var<storage> tangent_data: array<f32>;
+
 @group(1) @binding(0)
+var<uniform> camera: Camera;
+
+@group(2) @binding(0)
 var<storage> transforms: array<Transform>;
 
-struct Constants {
-    transform_index: i32
+fn read_vertex_position(vertex_index: u32, byte_offset: u32) -> vec3<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 3u;
+    return vec3<f32>(
+        position_data[ first_element_offset],
+        position_data[ first_element_offset + 1u],
+        position_data[ first_element_offset + 2u],
+    );
 }
-var<push_constant> constants: Constants;
+
+fn read_vertex_tex_coords(vertex_index: u32, byte_offset: u32) -> vec2<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 2u;
+    return vec2<f32>(
+        tex_coord_data[ first_element_offset],
+        tex_coord_data[ first_element_offset + 1u]
+    );
+}
+
+fn read_vertex_normal(vertex_index: u32, byte_offset: u32) -> vec3<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 3u;
+    return vec3<f32>(
+        normal_data[ first_element_offset],
+        normal_data[ first_element_offset + 1u],
+        normal_data[ first_element_offset + 2u],
+    );
+}
+
+fn read_vertex_tangent(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 4u;
+    return vec4<f32>(
+        tangent_data[first_element_offset],
+        tangent_data[first_element_offset + 1u],
+        tangent_data[first_element_offset + 2u],
+        tangent_data[first_element_offset + 3u],
+    );
+}
 
 @vertex
 fn vs_main(
-    model: VertexInput,
+    @builtin(vertex_index) vertex_index: u32,
+    instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    let transform = transforms[constants.transform_index];
+    let transform = transforms[instance.transform_index];
 
-    let world_position = transform.obj_proj * vec4<f32>(model.position, 1.0);
+    let model_position = read_vertex_position(vertex_index, instance.position_offset);
+    let world_position = transform.obj_proj * vec4<f32>(model_position, 1.0);
 
-    out.tex_coords = model.tex_coords;
+    let tex_coords = read_vertex_tex_coords(vertex_index, instance.tex_coord_offset);
+    out.tex_coords = tex_coords;
 
     out.position = world_position.xyz;
     out.clip_position = camera.view_proj * world_position;
 
     let normal_matrix = mat3x3<f32>(transform.normal_proj[0].xyz, transform.normal_proj[1].xyz, transform.normal_proj[2].xyz);
 
-    out.world_normal = normalize(normal_matrix * model.normal);
-    out.world_tangent = normalize(normal_matrix * model.tangent);
-    out.world_bitangent = normalize(normal_matrix * model.bitangent);
+    let model_normal = read_vertex_normal(vertex_index, instance.normal_offset);
+    let model_tangent = read_vertex_tangent(vertex_index, instance.tangent_offset);
+    let model_bitangent = cross(model_normal, model_tangent.xyz) * model_tangent.w;
+
+    out.world_normal = normalize(normal_matrix * model_normal);
+    out.world_tangent = normalize(normal_matrix * model_tangent.xyz);
+    out.world_bitangent = normalize(normal_matrix * model_bitangent);
 
     return out;
 }
@@ -74,42 +137,38 @@ struct Material {
     flags: u32,
 }
 
-const HAS_BASE_COLOR_TEXTURE: u32 = 0x0001u;
-const HAS_METALLIC_ROUGHNESS_TEXTURE: u32 = 0x0002u;
-const HAS_EMISSIVE_TEXTURE:u32 = 0x0004u;
-const HAS_OCCLUSION_TEXTURE:u32 = 0x0008u;
-const HAS_NORMAL_MAP :u32= 0x0010u;
+const HAS_BASE_COLOR_TEXTURE         = 0x0001u;
+const HAS_METALLIC_ROUGHNESS_TEXTURE = 0x0002u;
+const HAS_EMISSIVE_TEXTURE           = 0x0004u;
+const HAS_OCCLUSION_TEXTURE          = 0x0008u;
+const HAS_NORMAL_MAP                 = 0x0010u;
 
-fn extract_material_flag(data: u32, flag: u32) -> bool {
-    return bool(data & flag);
-}
-
-@group(2) @binding(0)
+@group(3) @binding(0)
 var<uniform> material: Material;
 
-@group(2) @binding(1)
+@group(3) @binding(1)
 var t_color: texture_2d<f32>;
-@group(2) @binding(2)
+@group(3) @binding(2)
 var s_color: sampler;
 
-@group(2) @binding(3)
+@group(3) @binding(3)
 var t_normal: texture_2d<f32>;
-@group(2) @binding(4)
+@group(3) @binding(4)
 var s_normal: sampler;
 
-@group(2) @binding(5)
+@group(3) @binding(5)
 var t_metallic_roughness: texture_2d<f32>;
-@group(2) @binding(6)
+@group(3) @binding(6)
 var s_metallic_roughness: sampler;
 
-@group(2) @binding(7)
+@group(3) @binding(7)
 var t_emissive: texture_2d<f32>;
-@group(2) @binding(8)
+@group(3) @binding(8)
 var s_emissive: sampler;
 
-@group(2) @binding(9)
+@group(3) @binding(9)
 var t_occlusion: texture_2d<f32>;
-@group(2) @binding(10)
+@group(3) @binding(10)
 var s_occlusion: sampler;
 
 struct FragmentOutput {
@@ -130,12 +189,12 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let occlusion_texture = textureSample(t_occlusion, s_occlusion, in.tex_coords);
 
     var base_color = material.base_color.rgb;
-    if extract_material_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
+    if extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
         base_color = base_color_texture;
     }
 
     var normal = in.world_normal;
-    if extract_material_flag(material.flags, HAS_NORMAL_MAP) {
+    if extract_flag(material.flags, HAS_NORMAL_MAP) {
         let tangent_matrix = mat3x3<f32>(
             in.world_tangent,
             in.world_bitangent,
@@ -147,18 +206,18 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     var metallicity = material.metallic;
     var roughness = material.roughness;
-    if extract_material_flag(material.flags, HAS_METALLIC_ROUGHNESS_TEXTURE) {
+    if extract_flag(material.flags, HAS_METALLIC_ROUGHNESS_TEXTURE) {
         metallicity = metallic_roughness_texture.b;
         roughness = metallic_roughness_texture.g;
     }
 
     var emissive = material.emissive.xyz;
-    if extract_material_flag(material.flags, HAS_EMISSIVE_TEXTURE) {
+    if extract_flag(material.flags, HAS_EMISSIVE_TEXTURE) {
         emissive = emissive_texture.xyz;
     }
 
     var occlusion = 0.0;
-    if extract_material_flag(material.flags, HAS_OCCLUSION_TEXTURE) {
+    if extract_flag(material.flags, HAS_OCCLUSION_TEXTURE) {
         occlusion = occlusion_texture.r;
     }
 

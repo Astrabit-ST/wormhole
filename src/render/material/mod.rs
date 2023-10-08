@@ -31,11 +31,15 @@ pub struct Data {
     emissive: render::Color,
     metallic: f32,
     roughness: f32,
-    flags: u32,
+    flags: MaterialFlags,
     _pad: [u8; 4],
 }
 
 bitflags::bitflags! {
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(bytemuck::Pod, bytemuck::Zeroable)]
     pub struct MaterialFlags: u32 {
         const HAS_BASE_COLOR_TEXTURE = 0b0000_0001;
         const HAS_METALLIC_ROUGHNESS_TEXTURE = 0b0000_0010;
@@ -99,8 +103,6 @@ impl Material {
                 textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
             })
             .unwrap_or(textures.null_texture());
-
-        let flags = flags.bits();
 
         let material_buffer =
             render_state

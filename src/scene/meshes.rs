@@ -23,14 +23,21 @@ use crate::scene;
 
 #[derive(Debug)]
 pub struct Meshes {
-    position_buffer: Buffer<glam::Vec3>,
-    normal_buffer: Buffer<glam::Vec3>,
-    tex_coord_buffer: Buffer<glam::Vec2>,
-    color_buffer: Buffer<render::Color>,
-    tangent_buffer: Buffer<glam::Vec4>,
+    vertex_buffers: VertexBuffers,
     index_buffer: Buffer<u32>,
 
+    vertex_buffer_bind_group: wgpu::BindGroup,
+
     seen_meshes: HashMap<MeshRef, MeshIndex>,
+}
+
+#[derive(Debug)]
+struct VertexBuffers {
+    position: Buffer<glam::Vec3>,
+    normal: Buffer<glam::Vec3>,
+    tex_coord: Buffer<glam::Vec2>,
+    color: Buffer<render::Color>,
+    tangent: Buffer<glam::Vec4>,
 }
 
 #[derive(Debug)]
@@ -46,13 +53,17 @@ struct MeshRef(Arc<render::Mesh>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MeshIndex {
-    pub vertex_offset: wgpu::BufferAddress,
-    pub vertex_count: wgpu::BufferAddress,
+    pub position_offset: wgpu::BufferAddress,
+    pub normal_offset: wgpu::BufferAddress,
+    pub tex_coord_offset: wgpu::BufferAddress,
+    pub color_offset: wgpu::BufferAddress,
+    pub tangent_offset: wgpu::BufferAddress,
 
     pub index_offset: wgpu::BufferAddress,
     pub index_count: wgpu::BufferAddress,
 
     pub material_id: assets::MaterialId,
+    pub mesh_flags: render::VertexFormat,
 }
 
 impl std::fmt::Debug for MeshRef {
@@ -154,29 +165,130 @@ where
     }
 }
 
-impl Meshes {
+impl VertexBuffers {
     pub fn new(render_state: &render::State) -> Self {
         Self {
-            position_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
-            normal_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
-            tex_coord_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
-            color_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
-            tangent_buffer: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            position: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            normal: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            tex_coord: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            color: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+            tangent: Buffer::new(render_state, wgpu::BufferUsages::STORAGE),
+        }
+    }
+
+    pub fn create_bind_group(&self, render_state: &render::State) -> wgpu::BindGroup {
+        render_state
+            .wgpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("scene meshes bind group"),
+                layout: &render_state.bind_groups.vertex_data,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: self.position.internal_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: self.normal.internal_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: self.tex_coord.internal_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: self.color.internal_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: self.tangent.internal_buffer.as_entire_binding(),
+                    },
+                ],
+            })
+    }
+
+    pub fn write_unwritten(
+        &mut self,
+        render_state: &render::State,
+        encoder: &mut wgpu::CommandEncoder,
+    ) -> bool {
+        let mut resized = false;
+        resized |= self.position.write_unwritten(render_state, encoder);
+        resized |= self.normal.write_unwritten(render_state, encoder);
+        resized |= self.tex_coord.write_unwritten(render_state, encoder);
+        resized |= self.color.write_unwritten(render_state, encoder);
+        resized |= self.tangent.write_unwritten(render_state, encoder);
+        resized
+    }
+}
+
+impl Meshes {
+    pub fn new(render_state: &render::State) -> Self {
+        let vertex_buffers = VertexBuffers::new(render_state);
+        let vertex_buffer_bind_group = vertex_buffers.create_bind_group(render_state);
+
+        Self {
+            vertex_buffers,
             index_buffer: Buffer::new(render_state, wgpu::BufferUsages::INDEX),
+
+            vertex_buffer_bind_group,
 
             seen_meshes: HashMap::with_capacity(16),
         }
     }
 
     pub fn upload_mesh(&mut self, mesh: Arc<render::Mesh>) -> MeshIndex {
-        let mesh_ref = MeshRef(mesh);
+        let mesh_ref = MeshRef(mesh.clone()); // FIXME: avoid extra clone
         if let Some(index) = self.seen_meshes.get(&mesh_ref).copied() {
             return index;
         }
 
         log::info!("Preparing to write mesh {mesh:#?}");
 
-        mesh_index
+        let position_offset = self
+            .vertex_buffers
+            .position
+            .queue_write(&mesh.parts.positions);
+
+        let index_offset = self.index_buffer.queue_write(&mesh.indices);
+        let index_count = mesh.indices.len() as wgpu::BufferAddress;
+
+        let normal_offset = if let Some(n) = &mesh.parts.normals {
+            self.vertex_buffers.normal.queue_write(n)
+        } else {
+            0
+        };
+
+        let tex_coord_offset = if let Some(t) = &mesh.parts.tex_coords {
+            self.vertex_buffers.tex_coord.queue_write(t)
+        } else {
+            0
+        };
+
+        let color_offset = if let Some(c) = &mesh.parts.colors {
+            self.vertex_buffers.color.queue_write(c)
+        } else {
+            0
+        };
+
+        let tangent_offset = if let Some(t) = &mesh.parts.tangents {
+            self.vertex_buffers.tangent.queue_write(t)
+        } else {
+            0
+        };
+
+        MeshIndex {
+            position_offset,
+            normal_offset,
+            tex_coord_offset,
+            color_offset,
+            tangent_offset,
+            index_offset,
+            index_count,
+            material_id: mesh.material_id,
+            mesh_flags: mesh.parts.vertex_format(),
+        }
     }
 
     pub fn get_mesh_index(&self, mesh: Arc<render::Mesh>) -> Option<MeshIndex> {
@@ -190,14 +302,18 @@ impl Meshes {
         render_state: &render::State,
         encoder: &mut wgpu::CommandEncoder,
     ) {
-        let mut recreate_bind_group = false;
-        recreate_bind_group |= self.position_buffer.write_unwritten(render_state, encoder);
-        recreate_bind_group |= self.normal_buffer.write_unwritten(render_state, encoder);
-        recreate_bind_group |= self.tex_coord_buffer.write_unwritten(render_state, encoder);
-        recreate_bind_group |= self.color_buffer.write_unwritten(render_state, encoder);
-        recreate_bind_group |= self.tangent_buffer.write_unwritten(render_state, encoder);
+        if self.vertex_buffers.write_unwritten(render_state, encoder) {
+            self.vertex_buffer_bind_group = self.vertex_buffers.create_bind_group(render_state);
+        }
 
         self.index_buffer.write_unwritten(render_state, encoder);
+    }
+
+    pub fn as_bind_group_index_buffer(&self) -> (&wgpu::BindGroup, &wgpu::Buffer) {
+        (
+            &self.vertex_buffer_bind_group,
+            &self.index_buffer.internal_buffer,
+        )
     }
 }
 
@@ -207,13 +323,13 @@ impl MeshIndex {
         render_resources: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
-        let base_vertex = (self.vertex_offset / VERTEX_SIZE) as i32;
-
         if let Some(material) = render_resources.assets.materials.get(self.material_id) {
             render_pass.set_bind_group(2, &material.bind_group, &[]);
         }
 
-        render_pass.draw_indexed(0..(self.index_count as u32), base_vertex, 0..1)
+        // why don't we need to pass a base_vertex? in the shader code we pass all the vertex offsets anyway, so offsetting the index isn't necessary.
+        // index '0' isn't really vertex 0.
+        render_pass.draw_indexed(0..(self.index_count as u32), 0, 0..1)
     }
 }
 
@@ -221,19 +337,66 @@ impl render::traits::Bindable for Meshes {
     const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
         wgpu::BindGroupLayoutDescriptor {
             label: Some("scene meshes bind group layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+            entries: &[
+                // positions
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true }, // FIXME: skinning might require write access
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                // normals
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // tex coords
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // colors
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // tangents
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
         };
 
     fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.transform
+        &render_state.bind_groups.vertex_data
     }
 }

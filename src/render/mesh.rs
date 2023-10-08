@@ -37,7 +37,10 @@ pub struct MeshParts {
 }
 
 bitflags::bitflags! {
+    #[repr(transparent)]
     #[derive(Clone, Copy, Debug)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(bytemuck::Pod, bytemuck::Zeroable)]
     pub struct VertexFormat: u32 {
         const HAS_VTX_NORMALS   = 0b0000_0001;
         const HAS_TEX_COORDS    = 0b0000_0010;
@@ -103,7 +106,52 @@ impl MeshParts {
     }
 
     pub fn approximate_tangents(&mut self, indices: &[u32]) {
-        self.tangents.get_or_insert_with(|| todo!());
+        if let (Some(tex_coords), Some(normals)) = (self.tex_coords.as_ref(), self.normals.as_ref())
+        {
+            self.tangents.get_or_insert_with(|| {
+                let mut triangles_included = vec![0; self.positions.len()];
+                let mut tangents = vec![glam::Vec4::ZERO; self.positions.len()];
+
+                for i in indices.chunks(3) {
+                    let v0 = i[0] as usize;
+                    let v1 = i[1] as usize;
+                    let v2 = i[2] as usize;
+
+                    let delta_pos1 = self.positions[v1] - self.positions[v0];
+                    let delta_pos2 = self.positions[v2] - self.positions[v0];
+
+                    let delta_uv1 = tex_coords[v1] - tex_coords[v0];
+                    let delta_uv2 = tex_coords[v2] - tex_coords[v0];
+
+                    let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+                    let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
+                    let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * -r;
+
+                    let normal = normals[v0];
+                    let t = tangent - normal * normal.dot(tangent);
+                    let w = if bitangent.cross(tangent).dot(normal) < 0.0 {
+                        -1.0
+                    } else {
+                        1.0
+                    };
+                    let tangent = glam::Vec4::new(t.x, t.y, t.z, w);
+
+                    tangents[v0] += tangent;
+                    tangents[v1] += tangent;
+                    tangents[v2] += tangent;
+
+                    triangles_included[v0] += 1;
+                    triangles_included[v1] += 1;
+                    triangles_included[v2] += 1;
+                }
+
+                tangents
+                    .into_iter()
+                    .zip(triangles_included)
+                    .map(|(tangent, n)| tangent / n as f32)
+                    .collect()
+            });
+        }
     }
 }
 

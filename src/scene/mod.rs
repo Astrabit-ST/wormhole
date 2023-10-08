@@ -79,7 +79,7 @@ pub struct RenderResources<'res> {
     pub lights: &'res wgpu::BindGroup,
     pub camera: &'res wgpu::BindGroup,
 
-    pub vertex_buffer: &'res wgpu::Buffer,
+    pub vertex_bind_group: &'res wgpu::BindGroup,
     pub index_buffer: &'res wgpu::Buffer,
 
     pub assets: &'res assets::Loader,
@@ -181,7 +181,7 @@ impl Scene {
 
         self.meshes.write_unwritten(render_state, &mut encoder);
 
-        let (vertex_buffer, index_buffer) = self.meshes.as_buffers();
+        let (vertex_bind_group, index_buffer) = self.meshes.as_bind_group_index_buffer();
 
         let mut resources = PrepareResources {
             transforms: self.buffers.transforms.start_write(),
@@ -225,7 +225,7 @@ impl Scene {
             lights: resources.lights.finish(render_state),
             camera: resources.camera.finish(render_state),
 
-            vertex_buffer,
+            vertex_bind_group,
             index_buffer,
 
             assets,
@@ -233,11 +233,11 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.object);
 
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-        render_pass.set_bind_group(0, render_resources.camera, &[]);
-        render_pass.set_bind_group(1, render_resources.transform, &[]);
+        render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);
+        render_pass.set_bind_group(1, render_resources.camera, &[]);
+        render_pass.set_bind_group(2, render_resources.transform, &[]);
 
         for prepared in prepared_objects {
             prepared.draw(&render_resources, &mut render_pass);
@@ -310,11 +310,11 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.light_object);
 
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-        render_pass.set_bind_group(0, render_resources.camera, &[]);
-        render_pass.set_bind_group(1, render_resources.transform, &[]);
+        render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);
+        render_pass.set_bind_group(1, render_resources.camera, &[]);
+        render_pass.set_bind_group(2, render_resources.transform, &[]);
 
         for light in prepared_light_objects {
             light.draw(&render_resources, &mut render_pass);

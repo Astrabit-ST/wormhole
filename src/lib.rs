@@ -80,6 +80,7 @@ pub mod render {
 
     mod mesh;
     pub use mesh::Mesh;
+    pub use mesh::VertexFormat;
 
     pub mod state;
     pub use state::State;
