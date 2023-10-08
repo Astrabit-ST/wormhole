@@ -137,7 +137,10 @@ where
                 .device
                 .create_buffer(&wgpu::BufferDescriptor {
                     label: Some("wormhole scene meshes internal buffer"),
-                    size: final_buffer_size / 2 + final_buffer_size,
+                    size: wgpu::util::align_to(
+                        final_buffer_size / 2 + final_buffer_size,
+                        wgpu::COPY_BUFFER_ALIGNMENT,
+                    ),
                     usage: self.internal_buffer.usage(),
                     mapped_at_creation: false,
                 });
