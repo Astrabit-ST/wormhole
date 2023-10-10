@@ -30,6 +30,8 @@ struct VertexOutput {
     @location(2) world_normal: vec3<f32>,
     @location(3) world_tangent: vec3<f32>,
     @location(4) world_bitangent: vec3<f32>,
+
+    @location(5) base_color: vec4<f32>,
 };
 
 struct Camera {
@@ -96,6 +98,16 @@ fn read_vertex_tangent(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
     );
 }
 
+fn read_vertex_color(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 4u;
+    return vec4<f32>(
+        color_data[first_element_offset],
+        color_data[first_element_offset + 1u],
+        color_data[first_element_offset + 2u],
+        color_data[first_element_offset + 3u],
+    );
+}
+
 @vertex
 fn vs_main(
     @builtin(vertex_index) vertex_index: u32,
@@ -123,6 +135,12 @@ fn vs_main(
     out.world_normal = normalize(normal_matrix * model_normal);
     out.world_tangent = normalize(normal_matrix * model_tangent.xyz);
     out.world_bitangent = normalize(normal_matrix * model_bitangent);
+
+    out.base_color = select(
+        vec4<f32>(1.0),
+        read_vertex_color(vertex_index, instance.color_offset),
+        extract_flag(instance.format_flags, HAS_VTX_COLOR)
+    );
 
     return out;
 }
@@ -188,7 +206,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let emissive_texture = textureSample(t_emissive, s_emissive, in.tex_coords);
     let occlusion_texture = textureSample(t_occlusion, s_occlusion, in.tex_coords);
 
-    var base_color = material.base_color.rgb;
+    var base_color = material.base_color.rgb * in.base_color.rgb;
     if extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
         base_color = base_color_texture;
     }
@@ -222,7 +240,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     }
 
     out.color_roughness = vec4<f32>(base_color, roughness);
-    out.normal_metallicity = vec4<f32>(in.world_normal, metallicity);
+    out.normal_metallicity = vec4<f32>(normal, metallicity);
     out.position_occlusion = vec4<f32>(in.position, occlusion);
     out.emissive = vec4<f32>(emissive, 1.0);
 

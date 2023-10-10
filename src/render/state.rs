@@ -87,6 +87,9 @@ impl GpuCreated {
                     limits: wgpu::Limits {
                         max_push_constant_size: 128,
                         max_buffer_size: adapter.limits().max_buffer_size,
+                        max_storage_buffer_binding_size: adapter
+                            .limits()
+                            .max_storage_buffer_binding_size,
                         ..Default::default()
                     },
                     features: wgpu::Features::PUSH_CONSTANTS,

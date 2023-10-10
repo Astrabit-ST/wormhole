@@ -47,7 +47,7 @@ impl Color {
 
 impl From<glam::Vec4> for Color {
     fn from(value: glam::Vec4) -> Self {
-        Self::from_rgba(value)
+        Self::from_rgba_normalized(value)
     }
 }
 
@@ -59,7 +59,7 @@ impl From<Color> for glam::Vec4 {
 
 impl From<glam::Vec3> for Color {
     fn from(value: glam::Vec3) -> Self {
-        Self::from_rgb(value)
+        Self::from_rgb_normalized(value)
     }
 }
 

@@ -246,8 +246,6 @@ impl Meshes {
             return index;
         }
 
-        log::info!("Preparing to write mesh {mesh:#?}");
-
         let position_offset = self
             .vertex_buffers
             .position
