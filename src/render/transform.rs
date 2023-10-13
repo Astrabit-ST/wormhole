@@ -86,9 +86,9 @@ impl Transform {
     pub fn from_gltf(transform: gltf::scene::Transform) -> Self {
         let (position, rotation, scale) = transform.decomposed();
         Self {
-            position: glam::Vec3::from_array(position),
+            position: glam::Vec3::from_array(position) * 5.0,
             rotation: glam::Quat::from_array(rotation),
-            scale: glam::Vec3::from_array(scale),
+            scale: glam::Vec3::from_array(scale) * 5.0,
         }
     }
 }

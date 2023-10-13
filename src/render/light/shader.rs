@@ -30,6 +30,40 @@ impl super::Light {
     pub fn create_light_object_render_pipeline(
         render_state: &render::state::BindGroupsCreated,
     ) -> wgpu::RenderPipeline {
+        let mut composer = naga_oil::compose::Composer::default()
+            .with_capabilities(naga::valid::Capabilities::PUSH_CONSTANT);
+        composer
+            .add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
+                source: include_str!("../shaders/util.wgsl"),
+                file_path: "shaders/util.wgsl",
+                ..Default::default()
+            })
+            .expect("failed to compose module");
+        composer
+            .add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
+                source: include_str!("../shaders/vertex_fetch.wgsl"),
+                file_path: "shaders/vertex_fetch.wgsl",
+                ..Default::default()
+            })
+            .expect("failed to compose module");
+
+        let module = composer
+            .make_naga_module(naga_oil::compose::NagaModuleDescriptor {
+                source: include_str!("../shaders/light_object.wgsl"),
+                file_path: "shaders/light_object.wgsl",
+                ..Default::default()
+            })
+            .expect("failed to compose shader");
+        let module = std::borrow::Cow::Owned(module);
+
+        let shader = render_state
+            .wgpu
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("light object render pipeline"),
+                source: wgpu::ShaderSource::Naga(module),
+            });
+
         let layout =
             render_state
                 .wgpu
@@ -46,11 +80,6 @@ impl super::Light {
                         range: 0..16,
                     }],
                 });
-
-        let shader = render_state
-            .wgpu
-            .device
-            .create_shader_module(wgpu::include_wgsl!("light_object.wgsl"));
 
         render_state
             .wgpu
@@ -100,6 +129,26 @@ impl super::Light {
     pub fn create_light_render_pipeline(
         render_state: &render::state::BindGroupsCreated,
     ) -> wgpu::RenderPipeline {
+        let mut composer = naga_oil::compose::Composer::default()
+            .with_capabilities(naga::valid::Capabilities::PUSH_CONSTANT);
+
+        let module = composer
+            .make_naga_module(naga_oil::compose::NagaModuleDescriptor {
+                source: include_str!("../shaders/light.wgsl"),
+                file_path: "shaders/light.wgsl",
+                ..Default::default()
+            })
+            .expect("failed to compose shader");
+        let module = std::borrow::Cow::Owned(module);
+
+        let shader = render_state
+            .wgpu
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("light render pipeline"),
+                source: wgpu::ShaderSource::Naga(module),
+            });
+
         let layout =
             render_state
                 .wgpu
@@ -116,11 +165,6 @@ impl super::Light {
                         range: 0..4,
                     }],
                 });
-
-        let shader = render_state
-            .wgpu
-            .device
-            .create_shader_module(wgpu::include_wgsl!("light.wgsl"));
 
         render_state
             .wgpu

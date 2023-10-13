@@ -101,11 +101,7 @@ impl Scene {
 
         let mut objects = vec![];
 
-        for path in [
-            "assets/intel-sponza/NewSponza_Main_glTF_002.gltf",
-            "assets/intel-sponza/NewSponza_Curtains_glTF.gltf",
-            "assets/intel-sponza/NewSponza_IvyGrowth_glTF.gltf",
-        ] {
+        for path in ["assets/WaterBottle/glTF/WaterBottle.gltf"] {
             Self::load_gltf(render_state, path, &mut meshes, assets, &mut objects)
         }
 

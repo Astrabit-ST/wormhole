@@ -1,3 +1,7 @@
 {
-    "rust-analyzer.showUnlinkedFileNotification": false
+    "rust-analyzer.showUnlinkedFileNotification": false,
+    "wgsl-analyzer.customImports": {
+        "wormhole::util": "file://home/lily/Git/wormhole/src/render/shaders/util.wgsl",
+        "wormhole::vertex_fetch": "file://home/lily/Git/wormhole/src/render/shaders/vertex_fetch.wgsl"
+    }
 }

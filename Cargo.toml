@@ -15,12 +15,14 @@ winit = "0.28.6"
 gilrs = "0.10.2"
 
 # Graphics
-wgpu = "0.17.0"
+wgpu = { version = "0.17.0", features = ["naga"] }
+naga = { version = "0.13.0" }
 
 # Shaders & math
 bytemuck = { version = "1.13.1", features = ["derive"] }
 glam = { version = "0.24.0", features = ["mint", "bytemuck"] }
 encase = { version = "0.6.1", features = ["glam"] }
+naga_oil = "0.9.0"
 
 # Asset loading
 image = "0.24.7"

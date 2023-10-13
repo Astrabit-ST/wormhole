@@ -1,3 +1,7 @@
+#define_import_path wormhole::vertex_fetch
+
+#import wormhole::util
+
 struct InstanceInput {
     @location(0) position_offset: u32,
     @location(1) normal_offset: u32,
@@ -15,25 +19,6 @@ const HAS_TEX_COORDS    = 0x0002u;
 const HAS_VTX_COLOR     = 0x0004u;
 const HAS_VTX_TANGENT   = 0x0008u;
 
-fn extract_flag(data: u32, flag: u32) -> bool {
-    return bool(data & flag);
-}
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-};
-
-struct Camera {
-    viewport_size: vec2<f32>,
-    view_pos: vec4<f32>,
-    view_proj: mat4x4<f32>,
-}
-
-struct Transform {
-    obj_proj: mat4x4<f32>,
-    normal_proj: mat4x4<f32>,
-}
-
 @group(0) @binding(0)
 var<storage> position_data: array<f32>;
 @group(0) @binding(1)
@@ -44,12 +29,6 @@ var<storage> tex_coord_data: array<f32>;
 var<storage> color_data: array<f32>;
 @group(0) @binding(4)
 var<storage> tangent_data: array<f32>;
-
-@group(1) @binding(0)
-var<uniform> camera: Camera;
-
-@group(2) @binding(0)
-var<storage> transforms: array<Transform>;
 
 fn read_vertex_position(vertex_index: u32, byte_offset: u32) -> vec3<f32> {
     let first_element_offset = byte_offset / 4u + vertex_index * 3u;
@@ -87,38 +66,12 @@ fn read_vertex_tangent(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
     );
 }
 
-@vertex
-fn vs_main(
-    @builtin(vertex_index) vertex_index: u32,
-    instance: InstanceInput,
-) -> VertexOutput {
-    var out: VertexOutput;
-
-    let transform = transforms[instance.transform_index];
-
-    let model_position = read_vertex_position(vertex_index, instance.position_offset);
-    let world_position = transform.obj_proj * vec4<f32>(model_position, 1.0);
-
-    out.clip_position = camera.view_proj * world_position;
-
-    return out;
-}
-
-struct Constants {
-    color: vec4<f32>,
-}
-var<push_constant> constants: Constants;
-
-// Fragment shader
-struct FragmentOutput {
-    @location(0) color: vec4<f32>,
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
-
-    out.color = constants.color;
-
-    return out;
+fn read_vertex_color(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
+    let first_element_offset = byte_offset / 4u + vertex_index * 4u;
+    return vec4<f32>(
+        color_data[first_element_offset],
+        color_data[first_element_offset + 1u],
+        color_data[first_element_offset + 2u],
+        color_data[first_element_offset + 3u],
+    );
 }

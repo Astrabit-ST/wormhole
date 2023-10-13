@@ -1,25 +1,6 @@
 // Vertex shader
-
-struct InstanceInput {
-    @location(0) position_offset: u32,
-    @location(1) normal_offset: u32,
-    @location(2) tex_coord_offset: u32,
-    @location(3) color_offset: u32,
-    @location(4) tangent_offset: u32,
-
-    @location(5) format_flags: u32,
-
-    @location(6) transform_index: u32,
-}
-
-const HAS_VTX_NORMALS   = 0x0001u;
-const HAS_TEX_COORDS    = 0x0002u;
-const HAS_VTX_COLOR     = 0x0004u;
-const HAS_VTX_TANGENT   = 0x0008u;
-
-fn extract_flag(data: u32, flag: u32) -> bool {
-    return bool(data & flag);
-}
+#import wormhole::util as Util
+#import wormhole::vertex_fetch as Fetch
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -45,82 +26,25 @@ struct Transform {
     normal_proj: mat4x4<f32>,
 }
 
-@group(0) @binding(0)
-var<storage> position_data: array<f32>;
-@group(0) @binding(1)
-var<storage> normal_data: array<f32>;
-@group(0) @binding(2)
-var<storage> tex_coord_data: array<f32>;
-@group(0) @binding(3)
-var<storage> color_data: array<f32>;
-@group(0) @binding(4)
-var<storage> tangent_data: array<f32>;
-
 @group(1) @binding(0)
 var<uniform> camera: Camera;
 
 @group(2) @binding(0)
 var<storage> transforms: array<Transform>;
 
-fn read_vertex_position(vertex_index: u32, byte_offset: u32) -> vec3<f32> {
-    let first_element_offset = byte_offset / 4u + vertex_index * 3u;
-    return vec3<f32>(
-        position_data[ first_element_offset],
-        position_data[ first_element_offset + 1u],
-        position_data[ first_element_offset + 2u],
-    );
-}
-
-fn read_vertex_tex_coords(vertex_index: u32, byte_offset: u32) -> vec2<f32> {
-    let first_element_offset = byte_offset / 4u + vertex_index * 2u;
-    return vec2<f32>(
-        tex_coord_data[ first_element_offset],
-        tex_coord_data[ first_element_offset + 1u]
-    );
-}
-
-fn read_vertex_normal(vertex_index: u32, byte_offset: u32) -> vec3<f32> {
-    let first_element_offset = byte_offset / 4u + vertex_index * 3u;
-    return vec3<f32>(
-        normal_data[ first_element_offset],
-        normal_data[ first_element_offset + 1u],
-        normal_data[ first_element_offset + 2u],
-    );
-}
-
-fn read_vertex_tangent(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
-    let first_element_offset = byte_offset / 4u + vertex_index * 4u;
-    return vec4<f32>(
-        tangent_data[first_element_offset],
-        tangent_data[first_element_offset + 1u],
-        tangent_data[first_element_offset + 2u],
-        tangent_data[first_element_offset + 3u],
-    );
-}
-
-fn read_vertex_color(vertex_index: u32, byte_offset: u32) -> vec4<f32> {
-    let first_element_offset = byte_offset / 4u + vertex_index * 4u;
-    return vec4<f32>(
-        color_data[first_element_offset],
-        color_data[first_element_offset + 1u],
-        color_data[first_element_offset + 2u],
-        color_data[first_element_offset + 3u],
-    );
-}
-
 @vertex
 fn vs_main(
     @builtin(vertex_index) vertex_index: u32,
-    instance: InstanceInput,
+    instance: Fetch::InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
     let transform = transforms[instance.transform_index];
 
-    let model_position = read_vertex_position(vertex_index, instance.position_offset);
+    let model_position = Fetch::read_vertex_position(vertex_index, instance.position_offset);
     let world_position = transform.obj_proj * vec4<f32>(model_position, 1.0);
 
-    let tex_coords = read_vertex_tex_coords(vertex_index, instance.tex_coord_offset);
+    let tex_coords = Fetch::read_vertex_tex_coords(vertex_index, instance.tex_coord_offset);
     out.tex_coords = tex_coords;
 
     out.position = world_position.xyz;
@@ -128,8 +52,8 @@ fn vs_main(
 
     let normal_matrix = mat3x3<f32>(transform.normal_proj[0].xyz, transform.normal_proj[1].xyz, transform.normal_proj[2].xyz);
 
-    let model_normal = read_vertex_normal(vertex_index, instance.normal_offset);
-    let model_tangent = read_vertex_tangent(vertex_index, instance.tangent_offset);
+    let model_normal = Fetch::read_vertex_normal(vertex_index, instance.normal_offset);
+    let model_tangent = Fetch::read_vertex_tangent(vertex_index, instance.tangent_offset);
     let model_bitangent = cross(model_normal, model_tangent.xyz) * model_tangent.w;
 
     out.world_normal = normalize(normal_matrix * model_normal);
@@ -138,8 +62,8 @@ fn vs_main(
 
     out.base_color = select(
         vec4<f32>(1.0),
-        read_vertex_color(vertex_index, instance.color_offset),
-        extract_flag(instance.format_flags, HAS_VTX_COLOR)
+        Fetch::read_vertex_color(vertex_index, instance.color_offset),
+        Util::extract_flag(instance.format_flags, Fetch::HAS_VTX_COLOR)
     );
 
     return out;
@@ -207,12 +131,12 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let occlusion_texture = textureSample(t_occlusion, s_occlusion, in.tex_coords);
 
     var base_color = material.base_color.rgb * in.base_color.rgb;
-    if extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
+    if Util::extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
         base_color = base_color_texture;
     }
 
     var normal = in.world_normal;
-    if extract_flag(material.flags, HAS_NORMAL_MAP) {
+    if Util::extract_flag(material.flags, HAS_NORMAL_MAP) {
         let tangent_matrix = mat3x3<f32>(
             in.world_tangent,
             in.world_bitangent,
@@ -224,18 +148,18 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     var metallicity = material.metallic;
     var roughness = material.roughness;
-    if extract_flag(material.flags, HAS_METALLIC_ROUGHNESS_TEXTURE) {
+    if Util::extract_flag(material.flags, HAS_METALLIC_ROUGHNESS_TEXTURE) {
         metallicity = metallic_roughness_texture.b;
         roughness = metallic_roughness_texture.g;
     }
 
     var emissive = material.emissive.xyz;
-    if extract_flag(material.flags, HAS_EMISSIVE_TEXTURE) {
+    if Util::extract_flag(material.flags, HAS_EMISSIVE_TEXTURE) {
         emissive = emissive_texture.xyz;
     }
 
     var occlusion = 0.0;
-    if extract_flag(material.flags, HAS_OCCLUSION_TEXTURE) {
+    if Util::extract_flag(material.flags, HAS_OCCLUSION_TEXTURE) {
         occlusion = occlusion_texture.r;
     }
 
