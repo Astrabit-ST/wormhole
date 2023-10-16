@@ -35,8 +35,6 @@ pub struct PreparedMesh {
 
     index_count: u32,
     index_offset: u32,
-
-    material_id: assets::MaterialId,
 }
 
 impl Object {
@@ -73,7 +71,6 @@ impl Object {
                         instance_index,
                         index_count: mesh_index.index_count as u32,
                         index_offset: mesh_index.index_offset as u32,
-                        material_id: mesh_index.material_id,
                     }
                 })
                 .collect(),
@@ -84,16 +81,13 @@ impl Object {
 impl Prepared {
     pub fn draw<'rpass>(
         self,
-        resources: &scene::RenderResources<'rpass>,
+        _resources: &scene::RenderResources<'rpass>,
         render_pass: &mut wgpu::RenderPass<'rpass>,
     ) {
         render_pass.push_debug_group("wormhole object draw");
 
         {
             for mesh in self.meshes {
-                let material = resources.assets.materials.get_expect(mesh.material_id);
-                render_pass.set_bind_group(3, &material.bind_group, &[]);
-
                 let index_start = mesh.index_offset / std::mem::size_of::<u32>() as u32;
                 let index_end = index_start + mesh.index_count;
 

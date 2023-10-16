@@ -17,21 +17,37 @@
 use crate::assets;
 use crate::render;
 
-use wgpu::util::DeviceExt;
-
 pub struct Material {
-    pub bind_group: wgpu::BindGroup,
+    pub base_color: render::Color,
+    pub base_color_texture: Option<assets::TextureId>,
+
+    pub emissive: render::Color,
+    pub emissive_texture: Option<assets::TextureId>,
+
+    pub metallic: f32,
+    pub roughness: f32,
+    pub metallic_roughness_texture: Option<assets::TextureId>,
+
+    pub normal_texture: Option<assets::TextureId>,
+    pub occlusion_texture: Option<assets::TextureId>,
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Data {
-    base_color: render::Color,
-    emissive: render::Color,
-    metallic: f32,
-    roughness: f32,
-    flags: MaterialFlags,
+    pub base_color: render::Color,
+    pub base_color_texture: u32,
+
+    pub metallic: f32,
+    pub roughness: f32,
+    pub metallic_roughness_texture: u32,
+
+    pub emissive: render::Color,
+    pub emissive_texture: u32,
+
+    pub normal_texture: u32,
+    pub occlusion_texture: u32,
     _pad: [u8; 4],
 }
 
@@ -45,253 +61,138 @@ bitflags::bitflags! {
         const HAS_METALLIC_ROUGHNESS_TEXTURE = 0b0000_0010;
         const HAS_EMISSIVE_TEXTURE = 0b0000_0100;
         const HAS_OCCLUSION_TEXTURE = 0b0000_1000;
-        const HAS_NORMAL_MAP = 0b0001_0000;
+        const HAS_NORMAL_TEXTURE = 0b0001_0000;
+    }
+}
+
+impl Default for Material {
+    fn default() -> Self {
+        Self {
+            base_color: render::Color::from([1.0; 3]),
+            base_color_texture: None,
+
+            emissive: render::Color::default(),
+            emissive_texture: None,
+
+            metallic: 0.5,
+            roughness: 0.5,
+            metallic_roughness_texture: None,
+
+            normal_texture: None,
+            occlusion_texture: None,
+        }
     }
 }
 
 impl Material {
-    pub fn from_gltf(
-        render_state: &render::State,
-        gltf_id: assets::GltfId,
-        textures: &assets::Textures,
-        material: gltf::Material<'_>,
-    ) -> Self {
+    pub fn from_gltf(gltf_id: assets::GltfId, material: gltf::Material<'_>) -> Self {
         let metallic_roughness = material.pbr_metallic_roughness();
 
         let mut flags = MaterialFlags::empty();
 
         let base_color = metallic_roughness.base_color_factor().into();
-        let base_color_texture = metallic_roughness
-            .base_color_texture()
-            .map(|i| {
-                flags |= MaterialFlags::HAS_BASE_COLOR_TEXTURE;
-                textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
-            })
-            .unwrap_or(textures.null_texture());
+        let base_color_texture = metallic_roughness.base_color_texture().map(|i| {
+            flags |= MaterialFlags::HAS_BASE_COLOR_TEXTURE;
+            assets::TextureId::Gltf(gltf_id, i.texture().index())
+        });
 
-        let normal_texture = material
-            .normal_texture()
-            .map(|i| {
-                flags |= MaterialFlags::HAS_NORMAL_MAP;
-                textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
-            })
-            .unwrap_or(textures.null_texture());
+        let normal_texture = material.normal_texture().map(|i| {
+            flags |= MaterialFlags::HAS_NORMAL_TEXTURE;
+            assets::TextureId::Gltf(gltf_id, i.texture().index())
+        });
 
         let metallic = metallic_roughness.metallic_factor();
         let roughness = metallic_roughness.roughness_factor();
-        let metallic_roughness_texture = metallic_roughness
-            .metallic_roughness_texture()
-            .map(|i| {
-                flags |= MaterialFlags::HAS_METALLIC_ROUGHNESS_TEXTURE;
-                textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
-            })
-            .unwrap_or(textures.null_texture());
+        let metallic_roughness_texture = metallic_roughness.metallic_roughness_texture().map(|i| {
+            flags |= MaterialFlags::HAS_METALLIC_ROUGHNESS_TEXTURE;
+            assets::TextureId::Gltf(gltf_id, i.texture().index())
+        });
 
         let emissive: render::Color = material.emissive_factor().into();
-        let emissive_texture = material
-            .emissive_texture()
-            .map(|i| {
-                flags |= MaterialFlags::HAS_EMISSIVE_TEXTURE;
-                textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
-            })
-            .unwrap_or(textures.null_texture());
+        let emissive_texture = material.emissive_texture().map(|i| {
+            flags |= MaterialFlags::HAS_EMISSIVE_TEXTURE;
+            assets::TextureId::Gltf(gltf_id, i.texture().index())
+        });
 
-        let occlusion_texture = material
-            .occlusion_texture()
-            .map(|i| {
-                flags |= MaterialFlags::HAS_OCCLUSION_TEXTURE;
-                textures.get_expect(assets::TextureId::Gltf(gltf_id, i.texture().index()))
-            })
-            .unwrap_or(textures.null_texture());
+        let occlusion_texture = material.occlusion_texture().map(|i| {
+            flags |= MaterialFlags::HAS_OCCLUSION_TEXTURE;
+            assets::TextureId::Gltf(gltf_id, i.texture().index())
+        });
 
-        let material_buffer =
-            render_state
-                .wgpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("wormhole material data buffer"),
-                    contents: bytemuck::bytes_of(&Data {
-                        base_color,
-                        metallic,
-                        roughness,
-                        emissive,
-                        flags,
-                        _pad: [0; 4],
-                    }),
-                    usage: wgpu::BufferUsages::UNIFORM,
-                });
+        Self {
+            base_color,
+            base_color_texture,
 
-        let bind_group = render_state
-            .wgpu
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("wormhole material bind group"),
-                layout: &render_state.bind_groups.material,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: material_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&base_color_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::Sampler(&base_color_texture.sampler),
-                    },
-                    // Normal
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::TextureView(&normal_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 4,
-                        resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
-                    },
-                    // Metallic
-                    wgpu::BindGroupEntry {
-                        binding: 5,
-                        resource: wgpu::BindingResource::TextureView(
-                            &metallic_roughness_texture.view,
-                        ),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 6,
-                        resource: wgpu::BindingResource::Sampler(
-                            &metallic_roughness_texture.sampler,
-                        ),
-                    },
-                    // Emissive
-                    wgpu::BindGroupEntry {
-                        binding: 7,
-                        resource: wgpu::BindingResource::TextureView(&emissive_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 8,
-                        resource: wgpu::BindingResource::Sampler(&emissive_texture.sampler),
-                    },
-                    // Occlusion
-                    wgpu::BindGroupEntry {
-                        binding: 9,
-                        resource: wgpu::BindingResource::TextureView(&occlusion_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 10,
-                        resource: wgpu::BindingResource::Sampler(&occlusion_texture.sampler),
-                    },
-                ],
-            });
+            emissive,
+            emissive_texture,
 
-        Self { bind_group }
+            metallic,
+            roughness,
+            metallic_roughness_texture,
+
+            normal_texture,
+            occlusion_texture,
+        }
     }
-}
 
-impl render::traits::Bindable for Material {
-    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("wormhole material bind group layout"),
-            entries: &[
-                // Material data
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // Base color
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Normal
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Metal & Roughness
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Emissive
-                wgpu::BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 8,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Occlusion
-                wgpu::BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 10,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        };
+    pub fn as_data(&self, textures: &assets::Textures) -> Data {
+        Data {
+            base_color: self.base_color,
+            base_color_texture: self
+                .base_color_texture
+                .and_then(|i| textures.id_to_bindgroup_index(i))
+                .unwrap_or_default() as u32,
 
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.material
+            metallic: self.metallic,
+            roughness: self.roughness,
+            metallic_roughness_texture: self
+                .metallic_roughness_texture
+                .and_then(|i| textures.id_to_bindgroup_index(i))
+                .unwrap_or_default() as u32,
+
+            emissive: self.emissive,
+            emissive_texture: self
+                .emissive_texture
+                .and_then(|i| textures.id_to_bindgroup_index(i))
+                .unwrap_or_default() as u32,
+
+            normal_texture: self
+                .normal_texture
+                .and_then(|i| textures.id_to_bindgroup_index(i))
+                .unwrap_or_default() as u32,
+            occlusion_texture: self
+                .occlusion_texture
+                .and_then(|i| textures.id_to_bindgroup_index(i))
+                .unwrap_or_default() as u32,
+
+            _pad: [0; 4],
+        }
+    }
+
+    pub fn calculate_flags(&self) -> MaterialFlags {
+        let mut flags = MaterialFlags::empty();
+
+        flags.set(
+            MaterialFlags::HAS_BASE_COLOR_TEXTURE,
+            self.base_color_texture.is_some(),
+        );
+        flags.set(
+            MaterialFlags::HAS_METALLIC_ROUGHNESS_TEXTURE,
+            self.metallic_roughness_texture.is_some(),
+        );
+        flags.set(
+            MaterialFlags::HAS_EMISSIVE_TEXTURE,
+            self.emissive_texture.is_some(),
+        );
+        flags.set(
+            MaterialFlags::HAS_OCCLUSION_TEXTURE,
+            self.occlusion_texture.is_some(),
+        );
+        flags.set(
+            MaterialFlags::HAS_NORMAL_TEXTURE,
+            self.normal_texture.is_some(),
+        );
+
+        flags
     }
 }

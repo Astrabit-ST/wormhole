@@ -31,11 +31,12 @@ pub struct Instance {
     pub mesh_flags: render::VertexFormat,
 
     pub transform_index: u32,
+    pub material_index: u32,
 }
 
 impl Instance {
     pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        const ATTRS: &[wgpu::VertexAttribute] = &wgpu::vertex_attr_array![0 => Uint32, 1 => Uint32, 2 => Uint32, 3 => Uint32, 4 => Uint32, 5 => Uint32, 6 => Uint32];
+        const ATTRS: &[wgpu::VertexAttribute] = &wgpu::vertex_attr_array![0 => Uint32, 1 => Uint32, 2 => Uint32, 3 => Uint32, 4 => Uint32, 5 => Uint32, 6 => Uint32, 7 => Uint32];
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
@@ -54,6 +55,7 @@ impl Instance {
             mesh_flags: mesh_index.mesh_flags,
 
             transform_index,
+            material_index: 0,
         }
     }
 }

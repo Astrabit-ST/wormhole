@@ -58,8 +58,7 @@ impl Loader {
 
         for material in document.materials() {
             let material_id = material.index().unwrap_or_default();
-            let material =
-                render::Material::from_gltf(render_state, gltf_id, &self.textures, material);
+            let material = render::Material::from_gltf(gltf_id, material);
             self.materials
                 .insert(assets::MaterialId::Gltf(gltf_id, material_id), material);
         }

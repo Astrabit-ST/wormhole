@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::assets;
 use crate::render;
 use crate::scene;
 
@@ -45,9 +46,10 @@ pub struct BindGroups {
     pub camera: wgpu::BindGroupLayout,
     pub transform: wgpu::BindGroupLayout,
     pub light: wgpu::BindGroupLayout,
-    pub material: wgpu::BindGroupLayout,
     pub gbuffer: wgpu::BindGroupLayout,
     pub vertex_data: wgpu::BindGroupLayout,
+    pub textures: wgpu::BindGroupLayout,
+    pub materials: wgpu::BindGroupLayout,
 }
 
 pub struct RenderPipelines {
@@ -80,19 +82,23 @@ impl GpuCreated {
             })
             .await
             .expect("failed to create adapter");
+        let adapter_limits = adapter.limits();
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("wgpu device"),
                     limits: wgpu::Limits {
                         max_push_constant_size: 128,
-                        max_buffer_size: adapter.limits().max_buffer_size,
-                        max_storage_buffer_binding_size: adapter
-                            .limits()
-                            .max_storage_buffer_binding_size,
+                        max_sampled_textures_per_shader_stage: adapter_limits
+                            .max_sampled_textures_per_shader_stage,
                         ..Default::default()
                     },
-                    features: wgpu::Features::PUSH_CONSTANTS,
+                    features: wgpu::Features::PUSH_CONSTANTS
+                        | wgpu::Features::TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::INDIRECT_FIRST_INSTANCE
+                        | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+                        | wgpu::Features::PARTIALLY_BOUND_BINDING_ARRAY
+                        | wgpu::Features::MULTI_DRAW_INDIRECT,
                 },
                 None,
             )
@@ -137,9 +143,10 @@ impl GpuCreated {
         let camera = render::Camera::create_bind_group_layout(&self);
         let transform = render::Transform::create_bind_group_layout(&self);
         let light = render::light::PreparedLight::create_bind_group_layout(&self);
-        let material = render::Material::create_bind_group_layout(&self);
         let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
         let vertex_data = scene::Meshes::create_bind_group_layout(&self);
+        let materials = assets::Materials::create_bind_group_layout(&self);
+        let textures = assets::Textures::create_bind_group_layout(&self);
 
         BindGroupsCreated {
             wgpu: self.wgpu,
@@ -147,9 +154,10 @@ impl GpuCreated {
                 camera,
                 transform,
                 light,
-                material,
+                materials,
                 gbuffer,
                 vertex_data,
+                textures,
             },
         }
     }

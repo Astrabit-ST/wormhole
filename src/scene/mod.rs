@@ -79,6 +79,7 @@ pub struct PrepareResources<'buf> {
     pub lights: render::buffer::dynamic::Writer<'buf, render::light::PreparedLight>,
     pub camera: render::buffer::single::Writer<'buf, render::Camera>,
     pub instances: render::buffer::instances::Writer<'buf>,
+    pub assets: &'buf assets::Loader,
 }
 
 pub struct RenderResources<'res> {
@@ -196,6 +197,7 @@ impl Scene {
             lights: self.buffers.lights.start_write(),
             camera: self.buffers.camera.start_write(),
             instances: self.buffers.instances.start_write(),
+            assets,
         };
 
         let prepared_objects = self

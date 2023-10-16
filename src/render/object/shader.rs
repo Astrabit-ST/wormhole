@@ -63,7 +63,8 @@ impl super::Object {
                         &render_state.bind_groups.vertex_data,
                         &render_state.bind_groups.camera,
                         &render_state.bind_groups.transform,
-                        &render_state.bind_groups.material,
+                        &render_state.bind_groups.textures,
+                        &render_state.bind_groups.materials,
                     ],
                     push_constant_ranges: &[],
                 });
