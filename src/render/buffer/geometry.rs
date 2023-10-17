@@ -38,8 +38,8 @@ impl Buffer {
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
                 label: Some("gbuffer sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
                 mag_filter: wgpu::FilterMode::Nearest,
                 min_filter: wgpu::FilterMode::Nearest,
                 ..Default::default()

@@ -30,6 +30,8 @@ pub struct Material {
 
     pub normal_texture: Option<assets::TextureId>,
     pub occlusion_texture: Option<assets::TextureId>,
+
+    pub alpha_cutoff: Option<f32>,
 }
 
 #[repr(C)]
@@ -48,7 +50,11 @@ pub struct Data {
 
     pub normal_texture: u32,
     pub occlusion_texture: u32,
+
+    pub alpha_cutoff: f32,
     pub flags: MaterialFlags,
+
+    _pad: [u8; 12],
 }
 
 bitflags::bitflags! {
@@ -62,6 +68,7 @@ bitflags::bitflags! {
         const HAS_EMISSIVE_TEXTURE = 0b0000_0100;
         const HAS_OCCLUSION_TEXTURE = 0b0000_1000;
         const HAS_NORMAL_TEXTURE = 0b0001_0000;
+        const HAS_ALPHA_CUTOFF = 0b0010_0000;
     }
 }
 
@@ -80,6 +87,8 @@ impl Default for Material {
 
             normal_texture: None,
             occlusion_texture: None,
+
+            alpha_cutoff: None,
         }
     }
 }
@@ -119,6 +128,8 @@ impl Material {
             assets::TextureId::Gltf(gltf_id, i.texture().index())
         });
 
+        let alpha_cutoff = material.alpha_cutoff();
+
         Self {
             base_color,
             base_color_texture,
@@ -132,6 +143,8 @@ impl Material {
 
             normal_texture,
             occlusion_texture,
+
+            alpha_cutoff,
         }
     }
 
@@ -165,7 +178,11 @@ impl Material {
                 .and_then(|i| textures.id_to_bindgroup_index(i))
                 .unwrap_or_default() as u32,
 
+            alpha_cutoff: self.alpha_cutoff.unwrap_or_default(),
+
             flags: self.calculate_flags(),
+
+            _pad: [0; 12],
         }
     }
 
@@ -192,6 +209,7 @@ impl Material {
             MaterialFlags::HAS_NORMAL_TEXTURE,
             self.normal_texture.is_some(),
         );
+        flags.set(MaterialFlags::HAS_ALPHA_CUTOFF, self.alpha_cutoff.is_some());
 
         flags
     }

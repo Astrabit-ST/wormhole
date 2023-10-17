@@ -86,6 +86,7 @@ struct Material {
     normal_texture: u32,
     occlusion_texture: u32,
 
+    alpha_cutoff: f32,
     flags: u32,
 }
 
@@ -94,6 +95,7 @@ const HAS_METALLIC_ROUGHNESS_TEXTURE = 0x0002u;
 const HAS_EMISSIVE_TEXTURE           = 0x0004u;
 const HAS_OCCLUSION_TEXTURE          = 0x0008u;
 const HAS_NORMAL_MAP                 = 0x0010u;
+const HAS_ALPHA_CUTOFF               = 0x0020u;
 
 @group(1) @binding(0)
 var material_sampler: sampler;
@@ -115,15 +117,19 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     let material = materials[in.material_index];
 
-    let base_color_texture = textureSample(textures[material.base_color_texture], material_sampler, in.tex_coords).rgb;
-    let normal_map_texture = textureSample(textures[material.normal_texture], material_sampler, in.tex_coords).rgb;
+    let base_color_texture = textureSample(textures[material.base_color_texture], material_sampler, in.tex_coords);
+    let normal_map_texture = textureSample(textures[material.normal_texture], material_sampler, in.tex_coords);
     let metallic_roughness_texture = textureSample(textures[material.metallic_roughness_texture], material_sampler, in.tex_coords);
     let emissive_texture = textureSample(textures[material.emissive_texture], material_sampler, in.tex_coords);
     let occlusion_texture = textureSample(textures[material.occlusion_texture], material_sampler, in.tex_coords);
 
+    if Util::extract_flag(material.flags, HAS_ALPHA_CUTOFF) && base_color_texture.a < material.alpha_cutoff {
+        discard;
+    }
+
     var base_color = material.base_color.rgb * in.base_color.rgb;
     if Util::extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
-        base_color = base_color_texture;
+        base_color = base_color_texture.rgb;
     }
 
     var normal = in.world_normal;
@@ -133,7 +139,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
             in.world_bitangent,
             in.world_normal,
         );
-        let normal_map = normal_map_texture * 2.0 - 1.0;
+        let normal_map = normal_map_texture.rgb * 2.0 - 1.0;
         normal = normalize(tangent_matrix * normal_map);
     }
 
