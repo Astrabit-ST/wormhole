@@ -23,17 +23,11 @@ use winit::event::VirtualKeyCode;
 pub struct Camera {
     pub projection: Projection,
     pub transform: Transform,
-    pub viewport_size: glam::Vec2,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-#[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Data {
-    viewport_size: glam::Vec2,
-    _pad: [u8; 8],
-    view_pos: glam::Vec4,
-    view_proj: glam::Mat4,
+    pub view_pos: glam::Vec3,
+    pub view_proj: glam::Mat4,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -90,15 +84,10 @@ impl Camera {
             znear: 0.1,
             zfar: 100.0,
         };
-        let viewport_size = glam::vec2(
-            render_state.wgpu.surface_config.width as f32,
-            render_state.wgpu.surface_config.height as f32,
-        );
 
         Camera {
             projection,
             transform,
-            viewport_size,
         }
     }
 
@@ -150,7 +139,6 @@ impl Camera {
 
         if let Some(size) = input.new_window_size() {
             self.projection.aspect = size.width as f32 / size.height as f32;
-            self.viewport_size = glam::vec2(size.width as f32, size.height as f32);
         }
 
         // Keep the camera's angle from going too high/low.
@@ -164,11 +152,9 @@ impl Camera {
     pub fn as_camera_data(self) -> Data {
         let view_proj =
             self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
-        let view_pos = glam::Vec4::from((self.transform.position, 8008135_f32)); // :3
+        let view_pos = self.transform.position; // glam::Vec4::from((self.transform.position, 8008135_f32)); // :3
 
         Data {
-            viewport_size: self.viewport_size,
-            _pad: [0; 8],
             view_pos,
             view_proj,
         }

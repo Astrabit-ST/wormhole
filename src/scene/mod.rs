@@ -236,6 +236,8 @@ impl Scene {
                 &render_state.bind_groups.materials,
             );
 
+        let camera_data = self.camera.as_camera_data();
+
         encoder.pop_debug_group();
 
         encoder.push_debug_group("wormhole deferred render pass");
@@ -253,6 +255,12 @@ impl Scene {
 
         render_pass.set_bind_group(0, &object_data, &[]);
         render_pass.set_bind_group(1, &material_data, &[]);
+
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::FRAGMENT,
+            0,
+            bytemuck::bytes_of(&camera_data.view_proj),
+        );
 
         for prepared in prepared_objects {
             prepared.draw(&mut render_pass);
@@ -298,12 +306,23 @@ impl Scene {
         render_pass.set_vertex_buffer(0, self.buffers.screen_vertices.slice(..));
 
         render_pass.set_bind_group(0, &light_data, &[]);
-        render_pass.set_bind_group(2, &self.buffers.gbuffer.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.buffers.gbuffer.bind_group, &[]);
 
+        // FIXME: clunky
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        #[derive(bytemuck::Pod, bytemuck::Zeroable)]
+        struct LightPushConstants {
+            light_count: u32,
+            view_pos: glam::Vec3,
+        }
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
             0,
-            bytemuck::bytes_of(&(self.lights.len() as u32)),
+            bytemuck::bytes_of(&LightPushConstants {
+                light_count: self.lights.len() as u32,
+                view_pos: camera_data.view_pos,
+            }),
         );
 
         render_pass.draw(0..6, 0..1);
@@ -329,6 +348,12 @@ impl Scene {
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
         render_pass.set_bind_group(0, &object_data, &[]);
+
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::FRAGMENT,
+            0,
+            bytemuck::bytes_of(&camera_data.view_proj),
+        );
 
         for light in prepared_light_objects {
             light.draw(&mut render_pass);

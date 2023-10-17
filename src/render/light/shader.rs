@@ -73,7 +73,7 @@ impl super::Light {
                     bind_group_layouts: &[&render_state.bind_groups.object_data],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::FRAGMENT,
-                        range: 0..112,
+                        range: 0..96,
                     }],
                 });
 
