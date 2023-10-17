@@ -155,7 +155,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     }
 
     out.color_roughness = vec4<f32>(base_color, roughness);
-    out.normal_metallicity = vec4<f32>(normal, metallicity);
+    out.normal_metallicity = vec4<f32>(in.world_normal, metallicity);
     out.position_occlusion = vec4<f32>(in.position, occlusion);
     out.emissive = vec4<f32>(emissive, 1.0);
 

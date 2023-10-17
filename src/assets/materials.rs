@@ -108,8 +108,7 @@ impl Materials {
         render_state: &render::State,
         textures: &assets::Textures,
     ) -> wgpu::Buffer {
-        let data = [&render::Material::default()]
-            .into_iter()
+        let data = std::iter::once(&render::Material::default())
             .chain(self.materials.values())
             .map(|m| m.as_data(textures))
             .collect_vec();

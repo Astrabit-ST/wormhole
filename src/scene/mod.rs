@@ -74,6 +74,7 @@ pub struct PrepareResources<'buf> {
     pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
     pub lights: render::buffer::dynamic::Writer<'buf, render::light::PreparedLight>,
     pub instances: render::buffer::instances::Writer<'buf>,
+    pub assets: &'buf assets::Loader,
 }
 
 impl Scene {
@@ -174,10 +175,26 @@ impl Scene {
 
         let (vertex_buffers, index_buffer) = self.meshes.as_bind_group_index_buffer();
 
+        let default_texture_sampler = &self.buffers.gbuffer.sampler;
+        let material_buffer = assets
+            .materials
+            .get_or_update_buffer(render_state, &assets.textures);
+        let texture_views = assets.textures.get_texture_views();
+        let material_data = render::BindGroupBuilder::new()
+            .append_sampler(default_texture_sampler)
+            .append_texture_view_array(&texture_views)
+            .append_buffer(material_buffer)
+            .build(
+                &render_state.wgpu.device,
+                Some("wormhole material data"),
+                &render_state.bind_groups.materials,
+            );
+
         let mut resources = PrepareResources {
             transforms: self.buffers.transforms.start_write(),
             lights: self.buffers.lights.start_write(),
             instances: self.buffers.instances.start_write(),
+            assets,
         };
 
         let prepared_objects = self
@@ -219,21 +236,6 @@ impl Scene {
                 &render_state.wgpu.device,
                 Some("wormhole object data"),
                 &render_state.bind_groups.object_data,
-            );
-
-        let default_texture_sampler = &self.buffers.gbuffer.sampler;
-        let material_buffer = assets
-            .materials
-            .get_or_update_buffer(render_state, &assets.textures);
-        let texture_views = assets.textures.get_texture_views();
-        let material_data = render::BindGroupBuilder::new()
-            .append_sampler(default_texture_sampler)
-            .append_texture_view_array(&texture_views)
-            .append_buffer(material_buffer)
-            .build(
-                &render_state.wgpu.device,
-                Some("wormhole material data"),
-                &render_state.bind_groups.materials,
             );
 
         let camera_data = self.camera.as_camera_data();

@@ -64,8 +64,11 @@ impl Object {
                 .iter()
                 .copied()
                 .map(|mesh_index| {
-                    let instance =
-                        render::Instance::from_mesh_transform_indices(mesh_index, transform_index);
+                    let instance = render::Instance::from_mesh_transform_indices_with_materials(
+                        mesh_index,
+                        transform_index,
+                        &resources.assets.materials,
+                    );
                     let instance_index = resources.instances.push(instance) as u32;
                     PreparedMesh {
                         instance_index,

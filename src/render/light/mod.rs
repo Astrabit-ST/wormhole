@@ -96,8 +96,10 @@ impl Light {
         };
         let transform_index = resources.transforms.push(&transform) as u32;
 
-        let instance =
-            render::Instance::from_mesh_transform_indices(self.mesh_index, transform_index);
+        let instance = render::Instance::from_mesh_transform_indices_without_material(
+            self.mesh_index,
+            transform_index,
+        );
         let instance_index = resources.instances.push(instance) as u32;
 
         PreparedObject {

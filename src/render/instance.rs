@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+use crate::assets;
 use crate::render;
 use crate::scene;
 
@@ -44,7 +45,10 @@ impl Instance {
         }
     }
 
-    pub fn from_mesh_transform_indices(mesh_index: scene::MeshIndex, transform_index: u32) -> Self {
+    pub fn from_mesh_transform_indices_without_material(
+        mesh_index: scene::MeshIndex,
+        transform_index: u32,
+    ) -> Self {
         Self {
             position_offset: mesh_index.position_offset as u32,
             normal_offset: mesh_index.normal_offset as u32,
@@ -56,6 +60,27 @@ impl Instance {
 
             transform_index,
             material_index: 0,
+        }
+    }
+
+    pub fn from_mesh_transform_indices_with_materials(
+        mesh_index: scene::MeshIndex,
+        transform_index: u32,
+        materials: &assets::Materials,
+    ) -> Self {
+        Self {
+            position_offset: mesh_index.position_offset as u32,
+            normal_offset: mesh_index.normal_offset as u32,
+            tex_coord_offset: mesh_index.tex_coord_offset as u32,
+            color_offset: mesh_index.color_offset as u32,
+            tangent_offset: mesh_index.tangent_offset as u32,
+
+            mesh_flags: mesh_index.mesh_flags,
+
+            transform_index,
+            material_index: materials
+                .id_to_bindgroup_index(mesh_index.material_id)
+                .unwrap_or_default() as u32,
         }
     }
 }

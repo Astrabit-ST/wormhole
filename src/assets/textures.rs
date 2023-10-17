@@ -139,6 +139,8 @@ impl Textures {
 
 impl Textures {
     pub fn get_texture_views(&self) -> Vec<&wgpu::TextureView> {
-        self.textures.values().map(|t| &t.view).collect_vec()
+        std::iter::once(&self.null_texture.view)
+            .chain(self.textures.values().map(|t| &t.view))
+            .collect_vec()
     }
 }
