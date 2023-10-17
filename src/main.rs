@@ -59,7 +59,7 @@ fn main() {
 
             scene.update(&render_state, &input_state);
 
-            scene.render(&render_state, &assets);
+            scene.render(&render_state, &mut assets);
         }
     });
 }

@@ -14,9 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::assets;
 use crate::render;
-use crate::scene;
 
 pub struct GpuCreated {
     pub wgpu: GpuState,
@@ -43,13 +41,10 @@ pub struct GpuState {
 }
 
 pub struct BindGroups {
-    pub camera: wgpu::BindGroupLayout,
-    pub transform: wgpu::BindGroupLayout,
-    pub light: wgpu::BindGroupLayout,
-    pub gbuffer: wgpu::BindGroupLayout,
-    pub vertex_data: wgpu::BindGroupLayout,
-    pub textures: wgpu::BindGroupLayout,
+    pub object_data: wgpu::BindGroupLayout,
     pub materials: wgpu::BindGroupLayout,
+    pub gbuffer: wgpu::BindGroupLayout,
+    pub light_data: wgpu::BindGroupLayout,
 }
 
 pub struct RenderPipelines {
@@ -96,7 +91,7 @@ impl GpuCreated {
                     features: wgpu::Features::PUSH_CONSTANTS
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::INDIRECT_FIRST_INSTANCE
-                        | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+                        // TODO: do we need this? | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
                         | wgpu::Features::PARTIALLY_BOUND_BINDING_ARRAY
                         | wgpu::Features::MULTI_DRAW_INDIRECT,
                 },
@@ -138,26 +133,89 @@ impl GpuCreated {
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
     pub fn initialize_bind_group_layouts(self) -> BindGroupsCreated {
-        use render::traits::Bindable;
+        const GENERIC_STORAGE: wgpu::BindingType = wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: true },
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        };
+        const GENERIC_TEXTURE: wgpu::BindingType = wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        };
+        const GENERIC_SAMPLER: wgpu::BindingType =
+            wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering);
 
-        let camera = render::Camera::create_bind_group_layout(&self);
-        let transform = render::Transform::create_bind_group_layout(&self);
-        let light = render::light::PreparedLight::create_bind_group_layout(&self);
-        let gbuffer = render::buffer::geometry::Buffer::create_bind_group_layout(&self);
-        let vertex_data = scene::Meshes::create_bind_group_layout(&self);
-        let materials = assets::Materials::create_bind_group_layout(&self);
-        let textures = assets::Textures::create_bind_group_layout(&self);
+        let object_data = render::BindGroupLayoutBuilder::new()
+            // transforms
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            // vertex positions
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            // vertex normals
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            // vertex tex_coords
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            // vertex colors
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            // vertex tangents
+            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+            .build(
+                &self.wgpu.device,
+                Some("wormhole object data bind group layout"),
+            );
+
+        let materials = render::BindGroupLayoutBuilder::new()
+            // Sampler
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
+            // Textures
+            .append(
+                wgpu::ShaderStages::FRAGMENT,
+                GENERIC_TEXTURE,
+                // Limit size to the max sampled textures per shader stage
+                std::num::NonZeroU32::new(
+                    self.wgpu
+                        .device
+                        .limits()
+                        .max_sampled_textures_per_shader_stage,
+                ),
+            )
+            // Material data
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
+            .build(
+                &self.wgpu.device,
+                Some("wormhole material data bind group layout"),
+            );
+
+        let gbuffer = render::BindGroupLayoutBuilder::new()
+            // Sampler
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
+            // Color + roughness
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+            // Normal + Metallicity
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+            // Position + Occlusion
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+            // Emissive
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+            .build(
+                &self.wgpu.device,
+                Some("wormhole gbuffer bind group layout"),
+            );
+
+        let light_data = render::BindGroupLayoutBuilder::new()
+            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
+            .build(
+                &self.wgpu.device,
+                Some("wormhole light data bind group layout"),
+            );
 
         BindGroupsCreated {
             wgpu: self.wgpu,
             bind_groups: BindGroups {
-                camera,
-                transform,
-                light,
+                object_data,
                 materials,
                 gbuffer,
-                vertex_data,
-                textures,
+                light_data,
             },
         }
     }

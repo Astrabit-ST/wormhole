@@ -19,22 +19,26 @@ use crate::{input, render};
 use winit::event::VirtualKeyCode;
 
 #[derive(Debug)]
+#[derive(Clone, Copy)]
 pub struct Camera {
-    projection: Projection,
-    transform: Transform,
-    viewport_size: glam::Vec2,
+    pub projection: Projection,
+    pub transform: Transform,
+    pub viewport_size: glam::Vec2,
 }
 
-#[derive(encase::ShaderType)]
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Data {
     viewport_size: glam::Vec2,
+    _pad: [u8; 8],
     view_pos: glam::Vec4,
     view_proj: glam::Mat4,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
-struct Transform {
+pub struct Transform {
     position: glam::Vec3,
 
     yaw: f32,
@@ -56,7 +60,7 @@ impl Transform {
 
 #[derive(Clone, Copy, Debug, Default)]
 #[derive(PartialEq)]
-struct Projection {
+pub struct Projection {
     aspect: f32,
     fovy: f32,
     znear: f32,
@@ -156,50 +160,17 @@ impl Camera {
             self.transform.pitch = SAFE_FRAC_PI_2;
         }
     }
-}
 
-impl encase::ShaderSize for Camera {}
-
-impl encase::ShaderType for Camera {
-    type ExtraMetadata = <Data as encase::ShaderType>::ExtraMetadata;
-    const METADATA: encase::private::Metadata<Self::ExtraMetadata> =
-        <Data as encase::ShaderType>::METADATA;
-}
-
-impl encase::internal::WriteInto for Camera {
-    fn write_into<B>(&self, writer: &mut encase::internal::Writer<B>)
-    where
-        B: encase::internal::BufferMut,
-    {
+    pub fn as_camera_data(self) -> Data {
         let view_proj =
             self.projection.build_projection_matrix() * self.transform.build_translation_matrix();
-        let view_pos = glam::Vec4::from((self.transform.position, 1.0));
+        let view_pos = glam::Vec4::from((self.transform.position, 8008135_f32)); // :3
+
         Data {
             viewport_size: self.viewport_size,
+            _pad: [0; 8],
             view_pos,
             view_proj,
         }
-        .write_into(writer)
-    }
-}
-
-impl render::traits::Bindable for Camera {
-    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("camera bind group layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::FRAGMENT),
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        };
-
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.camera
     }
 }

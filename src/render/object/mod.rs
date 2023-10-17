@@ -79,11 +79,7 @@ impl Object {
 }
 
 impl Prepared {
-    pub fn draw<'rpass>(
-        self,
-        _resources: &scene::RenderResources<'rpass>,
-        render_pass: &mut wgpu::RenderPass<'rpass>,
-    ) {
+    pub fn draw(self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.push_debug_group("wormhole object draw");
 
         {

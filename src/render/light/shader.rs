@@ -70,14 +70,10 @@ impl super::Light {
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("light object render pipeline layout"),
-                    bind_group_layouts: &[
-                        &render_state.bind_groups.vertex_data,
-                        &render_state.bind_groups.camera,
-                        &render_state.bind_groups.transform,
-                    ],
+                    bind_group_layouts: &[&render_state.bind_groups.object_data],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::FRAGMENT,
-                        range: 0..16,
+                        range: 0..112,
                     }],
                 });
 
@@ -156,13 +152,12 @@ impl super::Light {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("lighting render pipeline layout"),
                     bind_group_layouts: &[
-                        &render_state.bind_groups.camera,
-                        &render_state.bind_groups.light,
+                        &render_state.bind_groups.light_data,
                         &render_state.bind_groups.gbuffer,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::FRAGMENT,
-                        range: 0..4,
+                        range: 0..100,
                     }],
                 });
 

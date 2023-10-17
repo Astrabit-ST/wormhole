@@ -14,7 +14,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::render;
 
 #[derive(Clone, Copy, Debug)]
 #[derive(PartialEq)]
@@ -121,26 +120,3 @@ impl encase::internal::WriteInto for Transform {
         data.write_into(writer)
     }
 }
-
-impl render::traits::Bindable for Transform {
-    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("transform bind group layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::FRAGMENT),
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        };
-
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.transform
-    }
-}
-
-impl render::traits::DynamicBufferWriteable for Transform {}

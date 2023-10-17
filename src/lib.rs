@@ -71,6 +71,9 @@ pub mod render {
         pub mod instances;
     }
 
+    pub mod binding_helpers;
+    pub use binding_helpers::{BindGroupBuilder, BindGroupLayoutBuilder};
+
     mod camera;
     pub use camera::Camera;
 

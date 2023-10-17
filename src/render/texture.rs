@@ -20,7 +20,6 @@ use wgpu::util::DeviceExt;
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
 }
 
 pub struct TextureFormat {
@@ -80,25 +79,8 @@ impl Texture {
                 view_formats: &[],
             });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = render_state
-            .wgpu
-            .device
-            .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: format.filtering,
-                min_filter: format.filtering,
-                mipmap_filter: format.filtering,
-                compare: format.compare,
-                ..Default::default()
-            });
 
-        Self {
-            texture,
-            view,
-            sampler,
-        }
+        Self { texture, view }
     }
 
     pub fn new_screen_size(render_state: &render::State, format: TextureFormat) -> Self {
@@ -139,24 +121,8 @@ impl Texture {
             image,
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = render_state
-            .wgpu
-            .device
-            .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: format.filtering,
-                min_filter: format.filtering,
-                mipmap_filter: format.filtering,
-                ..Default::default()
-            });
 
-        Self {
-            texture,
-            view,
-            sampler,
-        }
+        Self { texture, view }
     }
 
     pub fn from_image(
@@ -225,68 +191,7 @@ impl Texture {
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let address_mode_u = match gltf_texture.sampler().wrap_s() {
-            gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-            gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
-            gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
-        };
-        let address_mode_v = match gltf_texture.sampler().wrap_t() {
-            gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-            gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
-            gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
-        };
-
-        let (min_filter, mipmap_filter) = gltf_texture
-            .sampler()
-            .min_filter()
-            .map(|f| match f {
-                gltf::texture::MinFilter::Nearest => {
-                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
-                }
-                gltf::texture::MinFilter::Linear => {
-                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
-                }
-                gltf::texture::MinFilter::NearestMipmapNearest => {
-                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
-                }
-                gltf::texture::MinFilter::LinearMipmapNearest => {
-                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Nearest)
-                }
-                gltf::texture::MinFilter::NearestMipmapLinear => {
-                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear)
-                }
-                gltf::texture::MinFilter::LinearMipmapLinear => {
-                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
-                }
-            })
-            .unwrap_or((wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest));
-        let mag_filter = gltf_texture
-            .sampler()
-            .mag_filter()
-            .map(|f| match f {
-                gltf::texture::MagFilter::Nearest => wgpu::FilterMode::Nearest,
-                gltf::texture::MagFilter::Linear => wgpu::FilterMode::Linear,
-            })
-            .unwrap_or(wgpu::FilterMode::Nearest);
-
-        let sampler = render_state
-            .wgpu
-            .device
-            .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u,
-                address_mode_v,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter,
-                min_filter,
-                mipmap_filter,
-                ..Default::default()
-            });
-
-        Self {
-            texture,
-            view,
-            sampler,
-        }
+        Self { texture, view }
     }
 
     pub fn resize_to_screen(&mut self, render_state: &render::State) {

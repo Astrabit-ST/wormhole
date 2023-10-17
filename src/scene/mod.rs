@@ -38,7 +38,6 @@ pub struct Scene {
 pub struct Buffers {
     transforms: render::buffer::dynamic::Buffer<render::Transform>,
     lights: render::buffer::dynamic::Buffer<render::light::PreparedLight>,
-    camera: render::buffer::single::Buffer<render::Camera>,
 
     instances: render::buffer::instances::Buffer,
 
@@ -54,8 +53,6 @@ impl Buffers {
         let lights =
             render::buffer::dynamic::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
-        let camera = render::buffer::single::Buffer::new(render_state, wgpu::BufferUsages::empty());
-
         let instances =
             render::buffer::instances::Buffer::new(render_state, wgpu::BufferUsages::empty());
 
@@ -66,7 +63,6 @@ impl Buffers {
         Self {
             transforms,
             lights,
-            camera,
             instances,
             gbuffer,
             screen_vertices,
@@ -77,21 +73,7 @@ impl Buffers {
 pub struct PrepareResources<'buf> {
     pub transforms: render::buffer::dynamic::Writer<'buf, render::Transform>,
     pub lights: render::buffer::dynamic::Writer<'buf, render::light::PreparedLight>,
-    pub camera: render::buffer::single::Writer<'buf, render::Camera>,
     pub instances: render::buffer::instances::Writer<'buf>,
-    pub assets: &'buf assets::Loader,
-}
-
-pub struct RenderResources<'res> {
-    pub transform: &'res wgpu::BindGroup,
-    pub lights: &'res wgpu::BindGroup,
-    pub camera: &'res wgpu::BindGroup,
-
-    pub vertex_bind_group: &'res wgpu::BindGroup,
-    pub index_buffer: &'res wgpu::Buffer,
-    pub instance_buffer: &'res wgpu::Buffer,
-
-    pub assets: &'res assets::Loader,
 }
 
 impl Scene {
@@ -176,7 +158,7 @@ impl Scene {
     // Every frame, scene resources are prepared (written to CPU-side buffers) that are then uploaded to the GPU (finish).
     //
     // These resources are used for a basic geometry pass, and then a super basic lighting pass is performed.
-    pub fn render(&mut self, render_state: &render::State, assets: &assets::Loader) {
+    pub fn render(&mut self, render_state: &render::State, assets: &mut assets::Loader) {
         let mut encoder =
             render_state
                 .wgpu
@@ -190,14 +172,12 @@ impl Scene {
 
         self.meshes.write_unwritten(render_state, &mut encoder);
 
-        let (vertex_bind_group, index_buffer) = self.meshes.as_bind_group_index_buffer();
+        let (vertex_buffers, index_buffer) = self.meshes.as_bind_group_index_buffer();
 
         let mut resources = PrepareResources {
             transforms: self.buffers.transforms.start_write(),
             lights: self.buffers.lights.start_write(),
-            camera: self.buffers.camera.start_write(),
             instances: self.buffers.instances.start_write(),
-            assets,
         };
 
         let prepared_objects = self
@@ -216,10 +196,45 @@ impl Scene {
             .map(|l| l.prepare_object(&mut resources))
             .collect_vec();
 
-        resources
-            .camera
-            .write(&self.camera)
-            .expect("failed to write camera data");
+        let instance_buffer = resources.instances.finish(render_state);
+
+        let light_buffer = resources.lights.finish(render_state);
+        let light_data = render::BindGroupBuilder::new()
+            .append_buffer(light_buffer)
+            .build(
+                &render_state.wgpu.device,
+                Some("wormhole light data"),
+                &render_state.bind_groups.light_data,
+            );
+
+        let transform_buffer = resources.transforms.finish(render_state);
+        let object_data = render::BindGroupBuilder::new()
+            .append_buffer(transform_buffer)
+            .append_buffer(vertex_buffers[0])
+            .append_buffer(vertex_buffers[1])
+            .append_buffer(vertex_buffers[2])
+            .append_buffer(vertex_buffers[3])
+            .append_buffer(vertex_buffers[4])
+            .build(
+                &render_state.wgpu.device,
+                Some("wormhole object data"),
+                &render_state.bind_groups.object_data,
+            );
+
+        let default_texture_sampler = &self.buffers.gbuffer.sampler;
+        let material_buffer = assets
+            .materials
+            .get_or_update_buffer(render_state, &assets.textures);
+        let texture_views = assets.textures.get_texture_views();
+        let material_data = render::BindGroupBuilder::new()
+            .append_sampler(default_texture_sampler)
+            .append_texture_view_array(&texture_views)
+            .append_buffer(material_buffer)
+            .build(
+                &render_state.wgpu.device,
+                Some("wormhole material data"),
+                &render_state.bind_groups.materials,
+            );
 
         encoder.pop_debug_group();
 
@@ -231,29 +246,16 @@ impl Scene {
             depth_stencil_attachment: Some(self.buffers.gbuffer.depth_stencil_attachment_initial()),
         });
 
-        let render_resources = RenderResources {
-            transform: resources.transforms.finish(render_state),
-            lights: resources.lights.finish(render_state),
-            camera: resources.camera.finish(render_state),
-
-            vertex_bind_group,
-            index_buffer,
-            instance_buffer: resources.instances.finish(render_state),
-
-            assets,
-        };
-
         render_pass.set_pipeline(&render_state.pipelines.object);
 
-        render_pass.set_vertex_buffer(0, render_resources.instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, instance_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-        render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);
-        render_pass.set_bind_group(1, render_resources.camera, &[]);
-        render_pass.set_bind_group(2, render_resources.transform, &[]);
+        render_pass.set_bind_group(0, &object_data, &[]);
+        render_pass.set_bind_group(1, &material_data, &[]);
 
         for prepared in prepared_objects {
-            prepared.draw(&render_resources, &mut render_pass);
+            prepared.draw(&mut render_pass);
         }
 
         drop(render_pass);
@@ -264,8 +266,9 @@ impl Scene {
 
         let output = match render_state.wgpu.surface.get_current_texture() {
             Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+            Err(error @ (wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost)) => {
                 render_state.reconfigure_surface();
+                eprintln!("surface error: {error:#?}");
 
                 return;
             }
@@ -294,8 +297,7 @@ impl Scene {
 
         render_pass.set_vertex_buffer(0, self.buffers.screen_vertices.slice(..));
 
-        render_pass.set_bind_group(0, render_resources.camera, &[]);
-        render_pass.set_bind_group(1, render_resources.lights, &[]);
+        render_pass.set_bind_group(0, &light_data, &[]);
         render_pass.set_bind_group(2, &self.buffers.gbuffer.bind_group, &[]);
 
         render_pass.set_push_constants(
@@ -323,15 +325,13 @@ impl Scene {
 
         render_pass.set_pipeline(&render_state.pipelines.light_object);
 
-        render_pass.set_vertex_buffer(0, render_resources.instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, instance_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-        render_pass.set_bind_group(0, render_resources.vertex_bind_group, &[]);
-        render_pass.set_bind_group(1, render_resources.camera, &[]);
-        render_pass.set_bind_group(2, render_resources.transform, &[]);
+        render_pass.set_bind_group(0, &object_data, &[]);
 
         for light in prepared_light_objects {
-            light.draw(&render_resources, &mut render_pass);
+            light.draw(&mut render_pass);
         }
 
         drop(render_pass);

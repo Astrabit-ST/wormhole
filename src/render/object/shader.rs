@@ -60,13 +60,13 @@ impl super::Object {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("object render pipeline layout"),
                     bind_group_layouts: &[
-                        &render_state.bind_groups.vertex_data,
-                        &render_state.bind_groups.camera,
-                        &render_state.bind_groups.transform,
-                        &render_state.bind_groups.textures,
+                        &render_state.bind_groups.object_data,
                         &render_state.bind_groups.materials,
                     ],
-                    push_constant_ranges: &[],
+                    push_constant_ranges: &[wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::FRAGMENT,
+                        range: 0..96,
+                    }],
                 });
 
         render_state

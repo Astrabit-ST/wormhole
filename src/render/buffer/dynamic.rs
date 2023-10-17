@@ -21,7 +21,6 @@ use std::marker::PhantomData;
 // Useful for writing frame specific data that may change in amount
 pub struct Buffer<T> {
     gpu_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
 
     phantom: PhantomData<[T]>,
 }
@@ -33,7 +32,7 @@ pub struct Writer<'buf, T> {
 
 impl<T> Buffer<T>
 where
-    T: render::traits::DynamicBufferWriteable,
+    T: encase::ShaderSize + encase::ShaderType + encase::internal::WriteInto,
 {
     pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
         let buffer_size = T::SHADER_SIZE.get() * 32;
@@ -50,21 +49,9 @@ where
                     | usage,
                 mapped_at_creation: false,
             });
-        let bind_group = render_state
-            .wgpu
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("wormhole dynamic buffer bind group"),
-                layout: T::get_layout(render_state),
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: gpu_buffer.as_entire_binding(),
-                }],
-            });
 
         Self {
             gpu_buffer,
-            bind_group,
 
             phantom: PhantomData,
         }
@@ -74,7 +61,7 @@ where
         Writer {
             cpu_buffer: encase::DynamicStorageBuffer::new_with_alignment(
                 Vec::with_capacity(self.gpu_buffer.size() as usize),
-                T::ALIGN,
+                32,
             ),
             internal: self,
         }
@@ -83,17 +70,17 @@ where
 
 impl<'buf, T> Writer<'buf, T>
 where
-    T: render::traits::DynamicBufferWriteable,
+    T: encase::ShaderSize + encase::ShaderType + encase::internal::WriteInto,
 {
     pub fn push(&mut self, value: &T) -> u64 {
         let offset = self
             .cpu_buffer
             .write(value)
             .expect("failed to write transform data");
-        offset / wgpu::util::align_to(T::SHADER_SIZE.get(), T::ALIGN)
+        offset / wgpu::util::align_to(T::SHADER_SIZE.get(), 32)
     }
 
-    pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {
+    pub fn finish(self, render_state: &render::State) -> &'buf wgpu::Buffer {
         let cpu_buffer = self.cpu_buffer.into_inner();
         if self.internal.gpu_buffer.size() < cpu_buffer.len() as wgpu::BufferAddress {
             let size = cpu_buffer.len();
@@ -109,27 +96,13 @@ where
                     mapped_at_creation: false,
                 });
 
-            let bind_group =
-                render_state
-                    .wgpu
-                    .device
-                    .create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("wormhole dynamic buffer bind group"),
-                        layout: T::get_layout(render_state),
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: gpu_buffer.as_entire_binding(),
-                        }],
-                    });
-
             self.internal.gpu_buffer = gpu_buffer;
-            self.internal.bind_group = bind_group;
         }
         render_state
             .wgpu
             .queue
             .write_buffer(&self.internal.gpu_buffer, 0, &cpu_buffer);
 
-        &self.internal.bind_group
+        &self.internal.gpu_buffer
     }
 }

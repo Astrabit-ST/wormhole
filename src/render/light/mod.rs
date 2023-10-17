@@ -128,11 +128,7 @@ impl Light {
 }
 
 impl PreparedObject {
-    pub fn draw<'rpass>(
-        self,
-        _: &scene::RenderResources<'rpass>,
-        render_pass: &mut wgpu::RenderPass<'rpass>,
-    ) {
+    pub fn draw(self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.push_debug_group("wormhole light object draw");
 
         {
@@ -154,26 +150,3 @@ impl PreparedObject {
         render_pass.pop_debug_group();
     }
 }
-
-impl render::traits::Bindable for PreparedLight {
-    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("wormhole lights"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-            }],
-        };
-
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.light
-    }
-}
-
-impl render::traits::DynamicBufferWriteable for PreparedLight {}

@@ -25,8 +25,6 @@ pub struct Meshes {
     vertex_buffers: VertexBuffers,
     index_buffer: Buffer<u32>,
 
-    vertex_buffer_bind_group: wgpu::BindGroup,
-
     seen_meshes: HashMap<MeshRef, MeshIndex>,
 }
 
@@ -178,38 +176,6 @@ impl VertexBuffers {
         }
     }
 
-    pub fn create_bind_group(&self, render_state: &render::State) -> wgpu::BindGroup {
-        render_state
-            .wgpu
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("scene meshes bind group"),
-                layout: &render_state.bind_groups.vertex_data,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: self.position.internal_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: self.normal.internal_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.tex_coord.internal_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: self.color.internal_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 4,
-                        resource: self.tangent.internal_buffer.as_entire_binding(),
-                    },
-                ],
-            })
-    }
-
     pub fn write_unwritten(
         &mut self,
         render_state: &render::State,
@@ -228,13 +194,10 @@ impl VertexBuffers {
 impl Meshes {
     pub fn new(render_state: &render::State) -> Self {
         let vertex_buffers = VertexBuffers::new(render_state);
-        let vertex_buffer_bind_group = vertex_buffers.create_bind_group(render_state);
 
         Self {
             vertex_buffers,
             index_buffer: Buffer::new(render_state, wgpu::BufferUsages::INDEX),
-
-            vertex_buffer_bind_group,
 
             seen_meshes: HashMap::with_capacity(16),
         }
@@ -302,85 +265,20 @@ impl Meshes {
         render_state: &render::State,
         encoder: &mut wgpu::CommandEncoder,
     ) {
-        if self.vertex_buffers.write_unwritten(render_state, encoder) {
-            self.vertex_buffer_bind_group = self.vertex_buffers.create_bind_group(render_state);
-        }
-
+        self.vertex_buffers.write_unwritten(render_state, encoder);
         self.index_buffer.write_unwritten(render_state, encoder);
     }
 
-    pub fn as_bind_group_index_buffer(&self) -> (&wgpu::BindGroup, &wgpu::Buffer) {
+    pub fn as_bind_group_index_buffer(&self) -> ([&wgpu::Buffer; 5], &wgpu::Buffer) {
         (
-            &self.vertex_buffer_bind_group,
+            [
+                &self.vertex_buffers.position.internal_buffer,
+                &self.vertex_buffers.normal.internal_buffer,
+                &self.vertex_buffers.tex_coord.internal_buffer,
+                &self.vertex_buffers.color.internal_buffer,
+                &self.vertex_buffers.tangent.internal_buffer,
+            ],
             &self.index_buffer.internal_buffer,
         )
-    }
-}
-
-impl render::traits::Bindable for Meshes {
-    const LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor<'static> =
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("scene meshes bind group layout"),
-            entries: &[
-                // positions
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true }, // FIXME: skinning might require write access
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // normals
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // tex coords
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // colors
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // tangents
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::VERTEX.union(wgpu::ShaderStages::COMPUTE),
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        };
-
-    fn get_layout(render_state: &render::State) -> &wgpu::BindGroupLayout {
-        &render_state.bind_groups.vertex_data
     }
 }

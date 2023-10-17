@@ -21,7 +21,6 @@ use std::marker::PhantomData;
 // Only one object can be written to at a time, the type system enforces this.
 pub struct Buffer<T> {
     gpu_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
 
     phantom: PhantomData<T>,
 }
@@ -33,7 +32,7 @@ pub struct Writer<'buf, T> {
 
 impl<T> Buffer<T>
 where
-    T: encase::ShaderSize + render::traits::Bindable,
+    T: encase::ShaderSize,
 {
     pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
         let gpu_buffer = render_state
@@ -48,21 +47,9 @@ where
                     | usage,
                 mapped_at_creation: false,
             });
-        let bind_group = render_state
-            .wgpu
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("wormhole dynamic buffer bind group"),
-                layout: T::get_layout(render_state),
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: gpu_buffer.as_entire_binding(),
-                }],
-            });
 
         Self {
             gpu_buffer,
-            bind_group,
 
             phantom: PhantomData,
         }
@@ -86,7 +73,7 @@ where
         self.cpu_buffer.write(value)
     }
 
-    pub fn finish(self, render_state: &render::State) -> &'buf wgpu::BindGroup {
+    pub fn finish(self, render_state: &render::State) -> &'buf wgpu::Buffer {
         let cpu_buffer = self.cpu_buffer.into_inner();
 
         render_state
@@ -94,6 +81,6 @@ where
             .queue
             .write_buffer(&self.internal.gpu_buffer, 0, &cpu_buffer);
 
-        &self.internal.bind_group
+        &self.internal.gpu_buffer
     }
 }
