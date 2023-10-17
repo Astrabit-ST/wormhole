@@ -42,8 +42,6 @@ pub struct PreparedObject {
     instance_index: u32,
     index_count: u32,
     index_offset: u32,
-
-    color: render::Color,
 }
 
 #[derive(encase::ShaderType)]
@@ -102,14 +100,10 @@ impl Light {
             render::Instance::from_mesh_transform_indices(self.mesh_index, transform_index);
         let instance_index = resources.instances.push(instance) as u32;
 
-        let color = self.diffuse;
-
         PreparedObject {
             instance_index,
             index_count: self.mesh_index.index_count as u32,
             index_offset: self.mesh_index.index_offset as u32,
-
-            color,
         }
     }
 
@@ -132,12 +126,6 @@ impl PreparedObject {
         render_pass.push_debug_group("wormhole light object draw");
 
         {
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::FRAGMENT,
-                0,
-                bytemuck::bytes_of(&self.color),
-            );
-
             let index_start = self.index_offset / std::mem::size_of::<u32>() as u32;
             let index_end = index_start + self.index_count;
 

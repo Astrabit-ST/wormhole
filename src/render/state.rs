@@ -91,7 +91,7 @@ impl GpuCreated {
                     features: wgpu::Features::PUSH_CONSTANTS
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::INDIRECT_FIRST_INSTANCE
-                        // TODO: do we need this? | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+                        | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING // TODO: do we need this?
                         | wgpu::Features::PARTIALLY_BOUND_BINDING_ARRAY
                         | wgpu::Features::MULTI_DRAW_INDIRECT,
                 },
@@ -225,9 +225,24 @@ impl BindGroupsCreated {
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
     pub fn initialize_render_pipelines(self) -> State {
-        let object = render::Object::create_render_pipeline(&self);
-        let light = render::Light::create_light_render_pipeline(&self);
-        let light_object = render::Light::create_light_object_render_pipeline(&self);
+        let object = match render::Object::create_render_pipeline(&self) {
+            Ok(p) => p,
+            Err(e) => {
+                panic!("Error creating object render pipeline:\n{e:#?}")
+            }
+        };
+        let light = match render::Light::create_light_render_pipeline(&self) {
+            Ok(p) => p,
+            Err(e) => {
+                panic!("Error creating light render pipeline:\n{e:#?}")
+            }
+        };
+        let light_object = match render::Light::create_light_object_render_pipeline(&self) {
+            Ok(p) => p,
+            Err(e) => {
+                panic!("Error creating light object render pipeline:\n{e:#?}")
+            }
+        };
 
         State {
             wgpu: self.wgpu,

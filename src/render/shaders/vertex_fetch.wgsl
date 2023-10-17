@@ -12,6 +12,7 @@ struct InstanceInput {
     @location(5) format_flags: u32,
 
     @location(6) transform_index: u32,
+    @location(7) material_index: u32,
 }
 
 const HAS_VTX_NORMALS   = 0x0001u;
@@ -19,15 +20,15 @@ const HAS_TEX_COORDS    = 0x0002u;
 const HAS_VTX_COLOR     = 0x0004u;
 const HAS_VTX_TANGENT   = 0x0008u;
 
-@group(0) @binding(0)
-var<storage> position_data: array<f32>;
 @group(0) @binding(1)
-var<storage> normal_data: array<f32>;
+var<storage> position_data: array<f32>;
 @group(0) @binding(2)
-var<storage> tex_coord_data: array<f32>;
+var<storage> normal_data: array<f32>;
 @group(0) @binding(3)
-var<storage> color_data: array<f32>;
+var<storage> tex_coord_data: array<f32>;
 @group(0) @binding(4)
+var<storage> color_data: array<f32>;
+@group(0) @binding(5)
 var<storage> tangent_data: array<f32>;
 
 fn read_vertex_position(vertex_index: u32, byte_offset: u32) -> vec3<f32> {

@@ -48,7 +48,7 @@ pub struct Data {
 
     pub normal_texture: u32,
     pub occlusion_texture: u32,
-    _pad: [u8; 4],
+    pub flags: MaterialFlags,
 }
 
 bitflags::bitflags! {
@@ -165,7 +165,7 @@ impl Material {
                 .and_then(|i| textures.id_to_bindgroup_index(i))
                 .unwrap_or_default() as u32,
 
-            _pad: [0; 4],
+            flags: self.calculate_flags(),
         }
     }
 

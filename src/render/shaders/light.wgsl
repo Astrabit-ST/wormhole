@@ -27,10 +27,15 @@ struct FragmentOutput {
 }
 
 struct Camera {
-    view_pos: vec4<f32>,
+    view_pos: vec3<f32>,
 }
-@group(0) @binding(0)
-var<uniform> camera: Camera;
+
+struct Constants {
+    light_count: u32,
+    camera: Camera,
+}
+
+var<push_constant> constants: Constants;
 
 struct Light {
     constant: f32,
@@ -43,30 +48,19 @@ struct Light {
 
     position: vec3<f32>,
 }
-@group(1) @binding(0)
+@group(0) @binding(0)
 var<storage> lights: array<Light>;
 
-var<push_constant> light_count: u32;
-
-@group(2) @binding(0)
+@group(1) @binding(0)
+var g_buffer_sampler: sampler;
+@group(1) @binding(1)
 var g_color_roughness: texture_2d<f32>;
-@group(2) @binding(1)
-var s_color_roughness: sampler;
-
-@group(2) @binding(2)
+@group(1) @binding(2)
 var g_normal_metallicity: texture_2d<f32>;
-@group(2) @binding(3)
-var s_normal_metallicity: sampler;
-
-@group(2) @binding(4)
+@group(1) @binding(3)
 var g_position_occlusion: texture_2d<f32>;
-@group(2) @binding(5)
-var s_position_occlusion: sampler;
-
-@group(2) @binding(6)
+@group(1) @binding(4)
 var g_emissive: texture_2d<f32>;
-@group(2) @binding(7)
-var s_emissive: sampler;
 
 const PI = 3.14159265359;
 
@@ -74,18 +68,18 @@ const PI = 3.14159265359;
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-    let color_roughness = textureSample(g_color_roughness, s_color_roughness, in.tex_coords);
-    let normal_metallicity = textureSample(g_normal_metallicity, s_normal_metallicity, in.tex_coords);
-    let position_occlusion = textureSample(g_position_occlusion, s_position_occlusion, in.tex_coords);
-    let emissive = textureSample(g_emissive, s_emissive, in.tex_coords);
+    let color_roughness = textureSample(g_color_roughness, g_buffer_sampler, in.tex_coords);
+    let normal_metallicity = textureSample(g_normal_metallicity, g_buffer_sampler, in.tex_coords);
+    let position_occlusion = textureSample(g_position_occlusion, g_buffer_sampler, in.tex_coords);
+    let emissive = textureSample(g_emissive, g_buffer_sampler, in.tex_coords);
 
     let n = normalize(normal_metallicity.rgb);
-    let v = normalize(camera.view_pos.rgb - position_occlusion.rgb);
+    let v = normalize(constants.camera.view_pos.rgb - position_occlusion.rgb);
 
     let f0 = mix(vec3<f32>(0.04), color_roughness.rgb, normal_metallicity.a);
 
     var l_o = vec3<f32>(0.0);
-    for (var i = 0u; i < light_count; i++) {
+    for (var i = 0u; i < constants.light_count; i++) {
         let light = lights[i];
 
         let l = normalize(light.position - position_occlusion.rgb);

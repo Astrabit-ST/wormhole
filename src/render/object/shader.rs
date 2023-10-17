@@ -19,30 +19,25 @@ use crate::render;
 impl super::Object {
     pub fn create_render_pipeline(
         render_state: &render::state::BindGroupsCreated,
-    ) -> wgpu::RenderPipeline {
-        let mut composer = naga_oil::compose::Composer::default();
-        composer
-            .add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
-                source: include_str!("../shaders/util.wgsl"),
-                file_path: "shaders/util.wgsl",
-                ..Default::default()
-            })
-            .expect("failed to compose module");
-        composer
-            .add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
-                source: include_str!("../shaders/vertex_fetch.wgsl"),
-                file_path: "shaders/vertex_fetch.wgsl",
-                ..Default::default()
-            })
-            .expect("failed to compose module");
+    ) -> Result<wgpu::RenderPipeline, naga_oil::compose::ComposerError> {
+        let mut composer = naga_oil::compose::Composer::default()
+            .with_capabilities(naga::valid::Capabilities::PUSH_CONSTANT | naga::valid::Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
+        composer.add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
+            source: include_str!("../shaders/util.wgsl"),
+            file_path: "shaders/util.wgsl",
+            ..Default::default()
+        })?;
+        composer.add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
+            source: include_str!("../shaders/vertex_fetch.wgsl"),
+            file_path: "shaders/vertex_fetch.wgsl",
+            ..Default::default()
+        })?;
 
-        let module = composer
-            .make_naga_module(naga_oil::compose::NagaModuleDescriptor {
-                source: include_str!("../shaders/object.wgsl"),
-                file_path: "shaders/object.wgsl",
-                ..Default::default()
-            })
-            .expect("failed to compose shader");
+        let module = composer.make_naga_module(naga_oil::compose::NagaModuleDescriptor {
+            source: include_str!("../shaders/object.wgsl"),
+            file_path: "shaders/object.wgsl",
+            ..Default::default()
+        })?;
         let module = std::borrow::Cow::Owned(module);
 
         let shader = render_state
@@ -64,12 +59,12 @@ impl super::Object {
                         &render_state.bind_groups.materials,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
-                        stages: wgpu::ShaderStages::FRAGMENT,
-                        range: 0..96,
+                        stages: wgpu::ShaderStages::VERTEX,
+                        range: 0..64,
                     }],
                 });
 
-        render_state
+        Ok(render_state
             .wgpu
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -128,6 +123,6 @@ impl super::Object {
                     alpha_to_coverage_enabled: false,
                 },
                 multiview: None,
-            })
+            }))
     }
 }

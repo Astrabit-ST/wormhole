@@ -257,7 +257,7 @@ impl Scene {
         render_pass.set_bind_group(1, &material_data, &[]);
 
         render_pass.set_push_constants(
-            wgpu::ShaderStages::FRAGMENT,
+            wgpu::ShaderStages::VERTEX,
             0,
             bytemuck::bytes_of(&camera_data.view_proj),
         );
@@ -350,7 +350,7 @@ impl Scene {
         render_pass.set_bind_group(0, &object_data, &[]);
 
         render_pass.set_push_constants(
-            wgpu::ShaderStages::FRAGMENT,
+            wgpu::ShaderStages::VERTEX,
             0,
             bytemuck::bytes_of(&camera_data.view_proj),
         );

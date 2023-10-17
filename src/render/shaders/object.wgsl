@@ -13,21 +13,22 @@ struct VertexOutput {
     @location(4) world_bitangent: vec3<f32>,
 
     @location(5) base_color: vec4<f32>,
+
+    @location(6) @interpolate(flat) material_index: u32,
 };
 
 struct Camera {
     view_proj: mat4x4<f32>,
 }
 
+var<push_constant> camera: Camera;
+
 struct Transform {
     obj_proj: mat4x4<f32>,
     normal_proj: mat4x4<f32>,
 }
 
-@group(1) @binding(0)
-var<uniform> camera: Camera;
-
-@group(2) @binding(0)
+@group(0) @binding(0)
 var<storage> transforms: array<Transform>;
 
 @vertex
@@ -64,6 +65,8 @@ fn vs_main(
         Util::extract_flag(instance.format_flags, Fetch::HAS_VTX_COLOR)
     );
 
+    out.material_index = instance.material_index;
+
     return out;
 }
 
@@ -71,9 +74,18 @@ fn vs_main(
 
 struct Material {
     base_color: vec4<f32>,
-    emissive: vec4<f32>,
+    base_color_texture: u32,
+
     metallic: f32,
     roughness: f32,
+    metallic_roughness_texture: u32,
+
+    emissive: vec4<f32>,
+    emissive_texture: u32,
+
+    normal_texture: u32,
+    occlusion_texture: u32,
+
     flags: u32,
 }
 
@@ -83,33 +95,12 @@ const HAS_EMISSIVE_TEXTURE           = 0x0004u;
 const HAS_OCCLUSION_TEXTURE          = 0x0008u;
 const HAS_NORMAL_MAP                 = 0x0010u;
 
-@group(3) @binding(0)
-var<uniform> material: Material;
-
-@group(3) @binding(1)
-var t_color: texture_2d<f32>;
-@group(3) @binding(2)
-var s_color: sampler;
-
-@group(3) @binding(3)
-var t_normal: texture_2d<f32>;
-@group(3) @binding(4)
-var s_normal: sampler;
-
-@group(3) @binding(5)
-var t_metallic_roughness: texture_2d<f32>;
-@group(3) @binding(6)
-var s_metallic_roughness: sampler;
-
-@group(3) @binding(7)
-var t_emissive: texture_2d<f32>;
-@group(3) @binding(8)
-var s_emissive: sampler;
-
-@group(3) @binding(9)
-var t_occlusion: texture_2d<f32>;
-@group(3) @binding(10)
-var s_occlusion: sampler;
+@group(1) @binding(0)
+var material_sampler: sampler;
+@group(1) @binding(1)
+var textures: binding_array<texture_2d<f32>>;
+@group(1) @binding(2)
+var<storage> materials: array<Material>;
 
 struct FragmentOutput {
     @location(0) color_roughness: vec4<f32>,
@@ -122,11 +113,13 @@ struct FragmentOutput {
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-    let base_color_texture = textureSample(t_color, s_color, in.tex_coords).rgb;
-    let normal_map_texture = textureSample(t_normal, s_normal, in.tex_coords).rgb;
-    let metallic_roughness_texture = textureSample(t_metallic_roughness, s_metallic_roughness, in.tex_coords);
-    let emissive_texture = textureSample(t_emissive, s_emissive, in.tex_coords);
-    let occlusion_texture = textureSample(t_occlusion, s_occlusion, in.tex_coords);
+    let material = materials[in.material_index];
+
+    let base_color_texture = textureSample(textures[material.base_color_texture], material_sampler, in.tex_coords).rgb;
+    let normal_map_texture = textureSample(textures[material.normal_texture], material_sampler, in.tex_coords).rgb;
+    let metallic_roughness_texture = textureSample(textures[material.metallic_roughness_texture], material_sampler, in.tex_coords);
+    let emissive_texture = textureSample(textures[material.emissive_texture], material_sampler, in.tex_coords);
+    let occlusion_texture = textureSample(textures[material.occlusion_texture], material_sampler, in.tex_coords);
 
     var base_color = material.base_color.rgb * in.base_color.rgb;
     if Util::extract_flag(material.flags, HAS_BASE_COLOR_TEXTURE) {
