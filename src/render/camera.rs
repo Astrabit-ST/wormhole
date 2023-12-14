@@ -16,7 +16,7 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::{input, render};
 
-use winit::event::VirtualKeyCode;
+use winit::{event::MouseButton, keyboard::KeyCode};
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -97,27 +97,27 @@ impl Camera {
         let forward = glam::Vec3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right = glam::Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize();
 
-        if input.keyboard.held(VirtualKeyCode::W) {
+        if input.keyboard.held(KeyCode::KeyW) {
             self.transform.position += forward * 4.0 * dt;
         }
 
-        if input.keyboard.held(VirtualKeyCode::A) {
+        if input.keyboard.held(KeyCode::KeyA) {
             self.transform.position -= right * 4.0 * dt;
         }
 
-        if input.keyboard.held(VirtualKeyCode::S) {
+        if input.keyboard.held(KeyCode::KeyS) {
             self.transform.position -= forward * 4.0 * dt;
         }
 
-        if input.keyboard.held(VirtualKeyCode::D) {
+        if input.keyboard.held(KeyCode::KeyD) {
             self.transform.position += right * 4.0 * dt;
         }
 
-        if input.keyboard.held(VirtualKeyCode::Space) {
+        if input.keyboard.held(KeyCode::Space) {
             self.transform.position.y += 4.0 * dt;
         }
 
-        if input.keyboard.held(VirtualKeyCode::LShift) {
+        if input.keyboard.held(KeyCode::ShiftLeft) {
             self.transform.position.y -= 4.0 * dt;
         }
 
@@ -127,7 +127,7 @@ impl Camera {
         let norm_mouse_y = mouse_y * 0.004;
 
         #[cfg(not(feature = "capture_mouse"))]
-        if input.mouse.held(winit::event::MouseButton::Left) {
+        if input.mouse.held(MouseButton::Left) {
             self.transform.yaw += norm_mouse_x;
             self.transform.pitch -= norm_mouse_y;
         }

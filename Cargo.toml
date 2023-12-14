@@ -9,20 +9,26 @@ resolver = "2"
 [dependencies]
 
 # Windowing
-winit = "0.28.6"
+winit = { version = "0.29.4", default-features = false, features = [
+    "x11",
+    "wayland",
+    "wayland-dlopen",
+    "wayland-csd-adwaita",
+    "rwh_05",
+] }
 
 # Input
 gilrs = "0.10.2"
 
 # Graphics
-wgpu = { version = "0.17.0", features = ["naga"] }
-naga = { version = "0.13.0" }
+wgpu = { version = "0.18.0", features = ["naga"] }
+naga = { version = "0.14.0" }
 
 # Shaders & math
 bytemuck = { version = "1.13.1", features = ["derive"] }
 glam = { version = "0.24.0", features = ["mint", "bytemuck"] }
 encase = { version = "0.6.1", features = ["glam"] }
-naga_oil = "0.9.0"
+naga_oil = "0.11.0"
 
 # Asset loading
 image = "0.24.7"

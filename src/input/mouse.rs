@@ -55,7 +55,7 @@ impl Mouse {
         self.current.cursor = None;
     }
 
-    pub fn process_window(&mut self, event: &WindowEvent<'_>) {
+    pub fn process_window(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.current.cursor = Some((position.x as f32, position.y as f32));
@@ -64,7 +64,7 @@ impl Mouse {
                 MouseButton::Left => self.current.left = matches!(state, ElementState::Pressed),
                 MouseButton::Right => self.current.right = matches!(state, ElementState::Pressed),
                 MouseButton::Middle => self.current.middle = matches!(state, ElementState::Pressed),
-                MouseButton::Other(_) => {}
+                MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => {} // todo maybe handle
             },
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 MouseScrollDelta::LineDelta(x, y) => self.scroll_diff = (*x, *y),
@@ -115,7 +115,7 @@ impl Mouse {
             MouseButton::Left => self.current.left && !self.previous.left,
             MouseButton::Right => self.current.right && !self.previous.right,
             MouseButton::Middle => self.current.middle && !self.previous.middle,
-            MouseButton::Other(_) => false,
+            MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => false,
         }
     }
 
@@ -124,7 +124,7 @@ impl Mouse {
             MouseButton::Left => !self.current.left && self.previous.left,
             MouseButton::Right => !self.current.right && self.previous.right,
             MouseButton::Middle => !self.current.middle && self.previous.middle,
-            MouseButton::Other(_) => false,
+            MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => false,
         }
     }
 
@@ -133,7 +133,7 @@ impl Mouse {
             MouseButton::Left => self.current.left,
             MouseButton::Right => self.current.right,
             MouseButton::Middle => self.current.middle,
-            MouseButton::Other(_) => false,
+            MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => false,
         }
     }
 }

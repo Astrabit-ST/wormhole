@@ -5,7 +5,7 @@ fn main() {
     color_backtrace::install();
     env_logger::init();
 
-    let event_loop = winit::event_loop::EventLoop::new();
+    let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
     let window = winit::window::WindowBuilder::new()
         .with_title("wormhole")
         .with_visible(false)
@@ -31,6 +31,8 @@ fn main() {
 
     let mut input_state = wormhole::input::State::new(&window);
 
+    let mut physics_state = wormhole::physics::State::new();
+
     let mut assets = wormhole::assets::Loader::new(&render_state);
 
     let mut scene = wormhole::scene::Scene::new(&render_state, &mut assets);
@@ -39,7 +41,7 @@ fn main() {
     #[cfg(feature = "capture_mouse")]
     window.set_cursor_visible(false);
 
-    event_loop.run(move |event, _, control_flow| {
+    let result = event_loop.run(move |event, target| {
         // Process the event. Once the last event is processed, input.process will return true and we can execute our logic.
         if input_state.process(&event, &window) {
             if let Some(size) = input_state.new_window_size() {
@@ -47,19 +49,22 @@ fn main() {
             }
 
             if input_state.close_requested() {
-                control_flow.set_exit();
+                target.exit();
             }
 
             if input_state
                 .keyboard
-                .pressed(winit::event::VirtualKeyCode::Escape)
+                .pressed(winit::keyboard::KeyCode::Escape)
             {
-                control_flow.set_exit();
+                target.exit();
             }
 
-            scene.update(&render_state, &input_state);
+            scene.update(&render_state, &input_state, &mut assets, &mut physics_state);
 
             scene.render(&render_state, &mut assets);
         }
     });
+    if let Err(e) = result {
+        eprintln!("event loop error {e}");
+    }
 }

@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use std::collections::HashSet;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 pub struct Keyboard {
     // Use a ping pong style buffer.
     // At the beginning of each frame, current and previous are swapped and current is cloned from previous.
     // This is pretty efficient for memory usage.
-    current: HashSet<VirtualKeyCode>,
-    previous: HashSet<VirtualKeyCode>,
+    current: HashSet<KeyCode>,
+    previous: HashSet<KeyCode>,
 }
 
 impl Keyboard {
@@ -40,34 +41,34 @@ impl Keyboard {
         self.current.clone_from(&self.previous);
     }
 
-    pub fn process(&mut self, event: &WindowEvent<'_>) {
+    pub fn process(&mut self, event: &WindowEvent) {
         // Pattern matching my beloved
         if let WindowEvent::KeyboardInput {
-            input:
-                KeyboardInput {
+            event:
+                KeyEvent {
+                    physical_key: PhysicalKey::Code(key),
                     state,
-                    virtual_keycode: Some(keycode),
                     ..
                 },
             ..
         } = event
         {
             match state {
-                ElementState::Pressed => self.current.insert(*keycode),
-                ElementState::Released => self.current.remove(keycode),
+                ElementState::Pressed => self.current.insert(*key),
+                ElementState::Released => self.current.remove(key),
             };
         }
     }
 
-    pub fn pressed(&self, key: VirtualKeyCode) -> bool {
+    pub fn pressed(&self, key: KeyCode) -> bool {
         self.current.contains(&key) && !self.previous.contains(&key)
     }
 
-    pub fn released(&self, key: VirtualKeyCode) -> bool {
+    pub fn released(&self, key: KeyCode) -> bool {
         self.previous.contains(&key) && !self.current.contains(&key)
     }
 
-    pub fn held(&self, key: VirtualKeyCode) -> bool {
+    pub fn held(&self, key: KeyCode) -> bool {
         self.current.contains(&key)
     }
 }

@@ -60,6 +60,11 @@ pub mod input {
     pub use state::State;
 }
 
+pub mod physics {
+    pub mod state;
+    pub use state::State;
+}
+
 pub mod render {
     pub mod buffer {
         pub mod dynamic;

@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::input;
-use winit::event::{Event, WindowEvent};
+use winit::{
+    event::{Event, WindowEvent},
+    keyboard::KeyCode,
+};
 
 pub struct State {
     pub keyboard: input::Keyboard,
@@ -63,7 +66,7 @@ impl State {
 
     pub fn process<T>(
         &mut self,
-        event: &winit::event::Event<'_, T>,
+        event: &winit::event::Event<T>,
         window: &winit::window::Window,
     ) -> bool {
         match event {
@@ -71,9 +74,6 @@ impl State {
             Event::WindowEvent { event, window_id } if *window_id == self.window_id => {
                 match event {
                     WindowEvent::Resized(size) => self.new_size = Some(*size),
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        self.new_size = Some(**new_inner_size)
-                    }
                     // if the window has moved, it might have moved to another monitor.
                     WindowEvent::Moved(_) => {
                         if let Some(monitor) = window.current_monitor() {
@@ -92,25 +92,25 @@ impl State {
             }
             _ => {}
         }
-        matches!(event, winit::event::Event::MainEventsCleared)
+        matches!(event, winit::event::Event::AboutToWait)
     }
 
     pub fn move_direction(&self) -> glam::Vec2 {
         let mut vector = glam::Vec2::ZERO;
 
-        if self.keyboard.held(winit::event::VirtualKeyCode::W) {
+        if self.keyboard.held(KeyCode::KeyW) {
             vector.y += 1.0;
         }
 
-        if self.keyboard.held(winit::event::VirtualKeyCode::A) {
+        if self.keyboard.held(KeyCode::KeyA) {
             vector.x -= 1.0;
         }
 
-        if self.keyboard.held(winit::event::VirtualKeyCode::S) {
+        if self.keyboard.held(KeyCode::KeyS) {
             vector.y -= 1.0;
         }
 
-        if self.keyboard.held(winit::event::VirtualKeyCode::D) {
+        if self.keyboard.held(KeyCode::KeyD) {
             vector.x -= 1.0;
         }
 

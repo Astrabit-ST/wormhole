@@ -113,7 +113,7 @@ impl Buffer {
                         b: 0.0,
                         a: 0.5,
                     }),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             }),
             Some(wgpu::RenderPassColorAttachment {
@@ -126,7 +126,7 @@ impl Buffer {
                         b: 0.0,
                         a: 0.0,
                     }),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             }),
             Some(wgpu::RenderPassColorAttachment {
@@ -139,7 +139,7 @@ impl Buffer {
                         b: 0.0,
                         a: 1.0,
                     }),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             }),
             Some(wgpu::RenderPassColorAttachment {
@@ -152,7 +152,7 @@ impl Buffer {
                         b: 0.0,
                         a: 0.0,
                     }),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             }),
         ]
@@ -163,7 +163,7 @@ impl Buffer {
             view: &self.depth.view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Clear(1.0),
-                store: true,
+                store: wgpu::StoreOp::Store,
             }),
             stencil_ops: None,
         }
@@ -174,7 +174,7 @@ impl Buffer {
             view: &self.depth.view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Load,
-                store: true,
+                store: wgpu::StoreOp::Store,
             }),
             stencil_ops: None,
         }

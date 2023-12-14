@@ -61,6 +61,8 @@ impl GpuCreated {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all()),
             dx12_shader_compiler: wgpu::Dx12Compiler::default(), // FIXME: support up-to-date DX12 compiler
+            flags: wgpu::InstanceFlags::from_build_config(),
+            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
         let surface = unsafe {
@@ -77,6 +79,12 @@ impl GpuCreated {
             })
             .await
             .expect("failed to create adapter");
+
+        let info = adapter.get_info();
+        log::info!("Backend : {:?}", info.backend);
+        log::info!("Device  : {}", info.name);
+        log::info!("Driver  : {} {}", info.driver, info.driver_info);
+
         let adapter_limits = adapter.limits();
         let (device, queue) = adapter
             .request_device(
