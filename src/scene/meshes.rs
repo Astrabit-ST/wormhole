@@ -14,13 +14,17 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::assets;
 use crate::render;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use bevy_ecs::prelude::*;
+
 #[derive(Debug)]
+#[derive(Resource)]
 pub struct Meshes {
     vertex_buffers: VertexBuffers,
     index_buffer: Buffer<u32>,

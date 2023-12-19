@@ -15,11 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::input;
+
 use winit::{
     event::{Event, WindowEvent},
     keyboard::KeyCode,
 };
 
+use bevy_ecs::prelude::*;
+
+#[derive(Resource)]
 pub struct State {
     pub keyboard: input::Keyboard,
     pub mouse: input::Mouse,

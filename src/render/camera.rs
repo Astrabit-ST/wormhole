@@ -77,9 +77,9 @@ impl Camera {
             yaw: 0.0,
             pitch: -90_f32.to_radians(),
         };
+        let surface_config = render_state.wgpu.surface_config.lock();
         let projection = Projection {
-            aspect: render_state.wgpu.surface_config.width as f32
-                / render_state.wgpu.surface_config.height as f32,
+            aspect: surface_config.width as f32 / surface_config.height as f32,
             fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,

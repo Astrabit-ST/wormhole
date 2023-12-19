@@ -24,45 +24,20 @@ fn main() {
     // SAFETY:
     // This function is unsafe because the window must be valid as long as the surface is valid.
     // Because the surface is created after the window, the drop order ensures that the surface is dropped after the window.
-    let mut render_state =
+    let render_state =
         unsafe { pollster::block_on(wormhole::render::state::GpuCreated::new(&window)) }
             .initialize_bind_group_layouts()
             .initialize_render_pipelines();
 
-    let mut input_state = wormhole::input::State::new(&window);
-
-    let mut physics_state = wormhole::physics::State::new();
-
-    let mut assets = wormhole::assets::Loader::new(&render_state);
-
-    let mut scene = wormhole::scene::Scene::new(&render_state, &mut assets);
+    let mut scene = wormhole::scene::Scene::new(render_state, &window);
 
     window.set_visible(true);
     #[cfg(feature = "capture_mouse")]
     window.set_cursor_visible(false);
 
     let result = event_loop.run(move |event, target| {
-        // Process the event. Once the last event is processed, input.process will return true and we can execute our logic.
-        if input_state.process(&event, &window) {
-            if let Some(size) = input_state.new_window_size() {
-                render_state.resize(size);
-            }
-
-            if input_state.close_requested() {
-                target.exit();
-            }
-
-            if input_state
-                .keyboard
-                .pressed(winit::keyboard::KeyCode::Escape)
-            {
-                target.exit();
-            }
-
-            scene.update(&render_state, &input_state, &mut assets, &mut physics_state);
-
-            scene.render(&render_state, &mut assets);
-        }
+        // Process the event.
+        scene.process_event(&event, target, &window);
     });
     if let Err(e) = result {
         eprintln!("event loop error {e}");

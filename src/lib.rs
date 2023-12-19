@@ -46,6 +46,17 @@ pub mod assets {
     pub use materials::Materials;
 }
 
+pub mod components {
+    mod transform;
+    pub use transform::Transform;
+
+    pub mod light;
+    pub use light::Light;
+
+    pub mod object;
+    pub use object::Object;
+}
+
 pub mod input {
     mod keyboard;
     pub use keyboard::Keyboard;
@@ -101,17 +112,13 @@ pub mod render {
 
     pub mod traits;
 
-    mod transform;
-    pub use transform::Transform;
-
     pub mod material;
     pub use material::Material;
-
-    pub mod light;
-    pub use light::Light;
-
-    pub mod object;
-    pub use object::Object;
 }
 
 pub mod scene;
+
+pub mod shaders {
+    pub mod light;
+    pub mod object;
+}

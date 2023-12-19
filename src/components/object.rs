@@ -16,13 +16,16 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::assets;
+use crate::components;
 use crate::render;
 use crate::scene;
 
-pub mod shader;
+use bevy_ecs::prelude::*;
 
+#[derive(Debug)]
+#[derive(Component)]
 pub struct Object {
-    pub transform: render::Transform,
+    pub transform: components::Transform,
     pub mesh_indices: Vec<scene::MeshIndex>,
 }
 
@@ -40,7 +43,7 @@ pub struct PreparedMesh {
 impl Object {
     pub fn new(
         meshes: &mut scene::Meshes,
-        transform: render::Transform,
+        transform: components::Transform,
         model: &assets::Model,
     ) -> Self {
         let mesh_indices = model

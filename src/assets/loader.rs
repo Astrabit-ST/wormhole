@@ -17,6 +17,9 @@
 use crate::assets;
 use crate::render;
 
+use bevy_ecs::prelude::*;
+
+#[derive(Resource)]
 pub struct Loader {
     pub textures: assets::Textures,
     pub models: assets::Models,

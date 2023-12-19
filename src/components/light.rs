@@ -15,13 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::assets;
+use crate::components;
 use crate::render;
 use crate::scene;
 
-mod shader;
+use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 pub struct Light {
-    transform: render::Transform,
     mesh_index: scene::MeshIndex,
 
     constant: f32,
@@ -59,8 +60,6 @@ pub struct PreparedLight {
 
 impl Light {
     pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Meshes) -> Self {
-        let transform = render::Transform::from_position(glam::vec3(0.0, 2.0, 0.0));
-
         let id = assets.models.load_tobj("assets/meshes/ico_sphere.obj");
         let model = assets.models.get_expect(id);
         let model_index = scene_models.upload_mesh(model.meshes[0].clone());
@@ -74,7 +73,6 @@ impl Light {
         let specular = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
 
         Light {
-            transform,
             mesh_index: model_index,
 
             constant,
@@ -90,7 +88,7 @@ impl Light {
     pub fn update(&mut self, _dt: f32) {}
 
     pub fn prepare_object(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedObject {
-        let transform = render::Transform {
+        let transform = components::Transform {
             scale: glam::Vec3::splat(0.1),
             ..self.transform
         };

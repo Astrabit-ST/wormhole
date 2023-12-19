@@ -14,7 +14,21 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use crate::render;
+
+use crate::{render, shaders};
+
+use bevy_ecs::prelude::*;
+
+use parking_lot::Mutex;
+use std::sync::Arc;
+
+#[derive(Resource)]
+#[derive(Debug, Clone)]
+pub struct State {
+    pub wgpu: Arc<GpuState>,
+    pub bind_groups: Arc<BindGroups>,
+    pub pipelines: Arc<RenderPipelines>,
+}
 
 pub struct GpuCreated {
     pub wgpu: GpuState,
@@ -25,21 +39,19 @@ pub struct BindGroupsCreated {
     pub bind_groups: BindGroups,
 }
 
-pub struct State {
-    pub wgpu: GpuState,
-    pub bind_groups: BindGroups,
-    pub pipelines: RenderPipelines,
-}
-
+#[derive(Debug)]
 pub struct GpuState {
     pub instance: wgpu::Instance,
     pub surface: wgpu::Surface,
-    pub surface_config: wgpu::SurfaceConfiguration,
+    // augh mutation behind an Arc SUCKS
+    // todo maybe convert the sizes into atomics instead? we only update this when resizing the window
+    pub surface_config: Mutex<wgpu::SurfaceConfiguration>,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
 }
 
+#[derive(Debug)]
 pub struct BindGroups {
     pub object_data: wgpu::BindGroupLayout,
     pub materials: wgpu::BindGroupLayout,
@@ -47,6 +59,7 @@ pub struct BindGroups {
     pub light_data: wgpu::BindGroupLayout,
 }
 
+#[derive(Debug)]
 pub struct RenderPipelines {
     pub object: wgpu::RenderPipeline,
     pub light: wgpu::RenderPipeline,
@@ -124,8 +137,9 @@ impl GpuCreated {
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };
-
         surface.configure(&device, &surface_config);
+
+        let surface_config = Mutex::new(surface_config);
 
         let wgpu = GpuState {
             instance,
@@ -233,33 +247,39 @@ impl BindGroupsCreated {
     /// Initializes the bind group layouts of all uniforms passed to shaders.
     /// Call this before initializing shaders, as they are dependent on these layouts.
     pub fn initialize_render_pipelines(self) -> State {
-        let object = match render::Object::create_render_pipeline(&self) {
+        let mut composer = naga_oil::compose::Composer::default()
+            .with_capabilities(wgpu::naga::valid::Capabilities::PUSH_CONSTANT | wgpu::naga::valid::Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
+        let object = match shaders::object::create_render_pipeline(&mut composer, &self) {
             Ok(p) => p,
-            Err(e) => {
-                panic!("Error creating object render pipeline:\n{e:#?}")
+            Err(err) => {
+                let err = err.emit_to_string(&composer);
+                panic!("Error creating object render pipeline:\n{err}")
             }
         };
-        let light = match render::Light::create_light_render_pipeline(&self) {
+        let light = match shaders::light::create_light_render_pipeline(&mut composer, &self) {
             Ok(p) => p,
-            Err(e) => {
-                panic!("Error creating light render pipeline:\n{e:#?}")
+            Err(err) => {
+                let err = err.emit_to_string(&composer);
+                panic!("Error creating light render pipeline:\n{err}")
             }
         };
-        let light_object = match render::Light::create_light_object_render_pipeline(&self) {
-            Ok(p) => p,
-            Err(e) => {
-                panic!("Error creating light object render pipeline:\n{e:#?}")
-            }
-        };
+        let light_object =
+            match shaders::light::create_light_object_render_pipeline(&mut composer, &self) {
+                Ok(p) => p,
+                Err(err) => {
+                    let err = err.emit_to_string(&composer);
+                    panic!("Error creating light object render pipeline:\n{err}")
+                }
+            };
 
         State {
-            wgpu: self.wgpu,
-            bind_groups: self.bind_groups,
-            pipelines: RenderPipelines {
+            wgpu: Arc::new(self.wgpu),
+            bind_groups: Arc::new(self.bind_groups),
+            pipelines: Arc::new(RenderPipelines {
                 object,
                 light,
                 light_object,
-            },
+            }),
         }
     }
 }
@@ -268,13 +288,14 @@ impl State {
     pub fn reconfigure_surface(&self) {
         self.wgpu
             .surface
-            .configure(&self.wgpu.device, &self.wgpu.surface_config)
+            .configure(&self.wgpu.device, &self.wgpu.surface_config.lock())
     }
 
-    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
-            self.wgpu.surface_config.width = size.width;
-            self.wgpu.surface_config.height = size.height;
+            let mut config = self.wgpu.surface_config.lock();
+            config.width = size.width;
+            config.height = size.height;
             self.reconfigure_surface();
         }
     }

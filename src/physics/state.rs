@@ -15,8 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
+use bevy_ecs::prelude::*;
 use rapier3d::prelude::*;
 
+#[derive(Resource)]
 pub struct State {
     pub physics_pipeline: PhysicsPipeline,
     pub gravity: Vector<Real>,

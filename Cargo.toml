@@ -18,11 +18,10 @@ winit = { version = "0.29.4", default-features = false, features = [
 ] }
 
 # Input
-gilrs = "0.10.2"
+gilrs = "0.10.4"
 
 # Graphics
 wgpu = { version = "0.18.0", features = ["naga"] }
-naga = { version = "0.14.0" }
 
 # Shaders & math
 bytemuck = { version = "1.13.1", features = ["derive"] }
@@ -42,22 +41,25 @@ pollster = "0.3.0"
 
 # general libraries
 once_cell = "1.18.0"
-crossbeam = "0.8.2"
 color-backtrace = "0.6.0"
-itertools = "0.11.0"
+itertools = "0.12.0"
 rand = "0.8.5"
 bitflags = { version = "2.4.0", features = ["bytemuck"] }
 indexmap = "2.0.2"
+
+# Threading
+parking_lot = "0.12.1"
+crossbeam = "0.8.2"
 
 # Logging & profiling
 log = "0.4.20"
 env_logger = "0.10"
 
 tracy_full = "1.5.0"
-wgpu-profiler = { version = "0.14.1", features = ["tracy"] }
+wgpu-profiler = { version = "0.15.0", features = ["tracy"] }
 
 # Game logic & Physics
-bevy_ecs = "0.11.3"
+bevy_ecs = "0.12.1"
 rapier3d = "0.17.2"
 
 [features]

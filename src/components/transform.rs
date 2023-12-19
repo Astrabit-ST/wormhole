@@ -15,8 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
+use bevy_ecs::prelude::*;
+
 #[derive(Clone, Copy, Debug)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Component)]
 pub struct Transform {
     pub position: glam::Vec3,
     pub rotation: glam::Quat,

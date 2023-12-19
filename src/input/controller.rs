@@ -15,9 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
+use parking_lot::Mutex;
+
 #[allow(dead_code)]
 pub struct Controller {
-    gilrs: gilrs::Gilrs,
+    gilrs: Mutex<gilrs::Gilrs>,
 }
 
 impl Controller {
@@ -30,6 +32,7 @@ impl Controller {
             }
             Err(e) => panic!("gilrs error: {e}"),
         };
+        let gilrs = Mutex::new(gilrs);
 
         Self { gilrs }
     }
