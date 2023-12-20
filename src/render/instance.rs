@@ -22,7 +22,7 @@ use crate::scene;
 #[derive(Clone, Copy, Debug)]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Instance {
+pub struct MeshInstance {
     pub position_offset: u32,
     pub normal_offset: u32,
     pub tex_coord_offset: u32,
@@ -35,11 +35,11 @@ pub struct Instance {
     pub material_index: u32,
 }
 
-impl Instance {
+impl MeshInstance {
     pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
         const ATTRS: &[wgpu::VertexAttribute] = &wgpu::vertex_attr_array![0 => Uint32, 1 => Uint32, 2 => Uint32, 3 => Uint32, 4 => Uint32, 5 => Uint32, 6 => Uint32, 7 => Uint32];
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<MeshInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: ATTRS,
         }

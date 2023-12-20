@@ -70,7 +70,7 @@ pub fn create_render_pipeline(
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[render::Instance::desc()],
+                buffers: &[render::MeshInstance::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,

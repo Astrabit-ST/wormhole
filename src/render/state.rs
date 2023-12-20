@@ -285,18 +285,13 @@ impl BindGroupsCreated {
 }
 
 impl State {
-    pub fn reconfigure_surface(&self) {
-        self.wgpu
-            .surface
-            .configure(&self.wgpu.device, &self.wgpu.surface_config.lock())
-    }
-
     pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
             let mut config = self.wgpu.surface_config.lock();
             config.width = size.width;
             config.height = size.height;
-            self.reconfigure_surface();
+
+            self.wgpu.surface.configure(&self.wgpu.device, &config)
         }
     }
 }

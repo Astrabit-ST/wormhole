@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::assets;
-use crate::components;
 use crate::render;
 use crate::scene;
 
@@ -60,7 +59,9 @@ pub struct PreparedLight {
 
 impl Light {
     pub fn new(assets: &mut assets::Loader, scene_models: &mut scene::Meshes) -> Self {
-        let id = assets.models.load_tobj("assets/meshes/ico_sphere.obj");
+        let id = assets
+            .models
+            .load_tobj("assets/meshes/ico_sphere.obj", assets::MaterialId::Path(0));
         let model = assets.models.get_expect(id);
         let model_index = scene_models.upload_mesh(model.meshes[0].clone());
 
@@ -87,14 +88,12 @@ impl Light {
 
     pub fn update(&mut self, _dt: f32) {}
 
-    pub fn prepare_object(&self, resources: &mut scene::PrepareResources<'_>) -> PreparedObject {
-        let transform = components::Transform {
-            scale: glam::Vec3::splat(0.1),
-            ..self.transform
-        };
-        let transform_index = resources.transforms.push(&transform) as u32;
-
-        let instance = render::Instance::from_mesh_transform_indices_without_material(
+    pub fn prepare_object(
+        &self,
+        transform_index: u32,
+        resources: &mut scene::PrepareResources<'_>,
+    ) -> PreparedObject {
+        let instance = render::MeshInstance::from_mesh_transform_indices_without_material(
             self.mesh_index,
             transform_index,
         );
@@ -107,7 +106,7 @@ impl Light {
         }
     }
 
-    pub fn prepare_light(&self, resources: &mut scene::PrepareResources<'_>) {
+    pub fn prepare_light(&self, position: glam::Vec3, resources: &mut scene::PrepareResources<'_>) {
         let prepared_light = PreparedLight {
             constant: self.constant,
             linear: self.linear,
@@ -115,7 +114,7 @@ impl Light {
             ambient: self.ambient,
             diffuse: self.diffuse,
             specular: self.specular,
-            position: self.transform.position,
+            position,
         };
         resources.lights.push(&prepared_light);
     }

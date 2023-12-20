@@ -17,6 +17,13 @@ struct Transform {
 @group(0) @binding(0)
 var<storage> transforms: array<Transform>;
 
+const SCALE_MAT: mat4x4f = mat4x4f(
+                                    0.1, 0.0, 0.0, 0.0,
+                                    0.0, 0.1, 0.0, 0.0,
+                                    0.0, 0.0, 0.1, 0.0,
+                                    0.0, 0.0, 0.0, 1.0,
+                                );
+
 @vertex
 fn vs_main(
     @builtin(vertex_index) vertex_index: u32,
@@ -27,7 +34,7 @@ fn vs_main(
     let transform = transforms[instance.transform_index];
 
     let model_position = Fetch::read_vertex_position(vertex_index, instance.position_offset);
-    let world_position = transform.obj_proj * vec4<f32>(model_position, 1.0);
+    let world_position = transform.obj_proj * SCALE_MAT * vec4<f32>(model_position, 1.0);
 
     out.clip_position = camera.view_proj * world_position;
 

@@ -14,13 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-#![warn(
-    rust_2018_idioms,
-    clippy::suspicious,
-    clippy::complexity,
-    clippy::perf,
-    clippy::style
-)]
+#![warn(clippy::suspicious, clippy::complexity, clippy::perf, clippy::style)]
 #![allow(clippy::new_without_default)]
 
 pub mod assets {
@@ -54,7 +48,7 @@ pub mod components {
     pub use light::Light;
 
     pub mod object;
-    pub use object::Object;
+    pub use object::MeshRenderer;
 }
 
 pub mod input {
@@ -97,7 +91,7 @@ pub mod render {
     pub use color::Color;
 
     mod instance;
-    pub use instance::Instance;
+    pub use instance::MeshInstance;
 
     mod mesh;
     pub use mesh::Mesh;
@@ -121,4 +115,12 @@ pub mod scene;
 pub mod shaders {
     pub mod light;
     pub mod object;
+}
+
+pub mod systems {
+    mod render;
+    pub use render::render;
+
+    mod input;
+    pub use input::input;
 }

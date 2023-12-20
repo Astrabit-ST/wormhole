@@ -157,7 +157,7 @@ impl MeshParts {
 
 impl Mesh {
     /// The mesh must be loaded with `triangluate` and `single_index` set to true.
-    pub fn from_tobj_mesh(mut mesh: tobj::Mesh) -> Self {
+    pub fn from_tobj_mesh(mut mesh: tobj::Mesh, material_id: assets::MaterialId) -> Self {
         mesh.positions.shrink_to_fit();
         let positions = bytemuck::cast_vec(mesh.positions);
 
@@ -194,7 +194,7 @@ impl Mesh {
         Self {
             parts,
             indices: mesh.indices,
-            material_id: assets::MaterialId::Path(0), // FIXME
+            material_id,
         }
     }
 
@@ -223,6 +223,6 @@ impl Mesh {
 
 impl From<tobj::Mesh> for Mesh {
     fn from(value: tobj::Mesh) -> Self {
-        Self::from_tobj_mesh(value)
+        Self::from_tobj_mesh(value, assets::MaterialId::Path(0)) // FIXME
     }
 }

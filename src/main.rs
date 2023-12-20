@@ -36,6 +36,7 @@ fn main() {
     window.set_cursor_visible(false);
 
     let result = event_loop.run(move |event, target| {
+        target.set_control_flow(winit::event_loop::ControlFlow::Poll);
         // Process the event.
         scene.process_event(&event, target, &window);
     });

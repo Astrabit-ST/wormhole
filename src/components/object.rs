@@ -15,8 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::assets;
-use crate::components;
 use crate::render;
 use crate::scene;
 
@@ -24,13 +22,8 @@ use bevy_ecs::prelude::*;
 
 #[derive(Debug)]
 #[derive(Component)]
-pub struct Object {
-    pub transform: components::Transform,
-    pub mesh_indices: Vec<scene::MeshIndex>,
-}
-
-pub struct Prepared {
-    meshes: Vec<PreparedMesh>,
+pub struct MeshRenderer {
+    pub mesh_index: scene::MeshIndex,
 }
 
 pub struct PreparedMesh {
@@ -40,65 +33,42 @@ pub struct PreparedMesh {
     index_offset: u32,
 }
 
-impl Object {
-    pub fn new(
-        meshes: &mut scene::Meshes,
-        transform: components::Transform,
-        model: &assets::Model,
-    ) -> Self {
-        let mesh_indices = model
-            .meshes
-            .iter()
-            .cloned()
-            .map(|m| meshes.upload_mesh(m))
-            .collect();
-        Self {
-            transform,
-            mesh_indices,
-        }
+impl MeshRenderer {
+    pub fn new(meshes: &mut scene::Meshes, mesh: std::sync::Arc<render::Mesh>) -> Self {
+        let mesh_index = meshes.upload_mesh(mesh);
+        Self { mesh_index }
     }
 
-    pub fn prepare(&self, resources: &mut scene::PrepareResources<'_>) -> Prepared {
-        let transform_index = resources.transforms.push(&self.transform) as u32;
-
-        Prepared {
-            meshes: self
-                .mesh_indices
-                .iter()
-                .copied()
-                .map(|mesh_index| {
-                    let instance = render::Instance::from_mesh_transform_indices_with_materials(
-                        mesh_index,
-                        transform_index,
-                        &resources.assets.materials,
-                    );
-                    let instance_index = resources.instances.push(instance) as u32;
-                    PreparedMesh {
-                        instance_index,
-                        index_count: mesh_index.index_count as u32,
-                        index_offset: mesh_index.index_offset as u32,
-                    }
-                })
-                .collect(),
+    pub fn prepare(
+        &self,
+        transform_index: u32,
+        resources: &mut scene::PrepareResources<'_>,
+    ) -> PreparedMesh {
+        let instance = render::MeshInstance::from_mesh_transform_indices_with_materials(
+            self.mesh_index,
+            transform_index,
+            &resources.assets.materials,
+        );
+        let instance_index = resources.instances.push(instance) as u32;
+        PreparedMesh {
+            instance_index,
+            index_count: self.mesh_index.index_count as u32,
+            index_offset: self.mesh_index.index_offset as u32,
         }
     }
 }
 
-impl Prepared {
+impl PreparedMesh {
     pub fn draw(self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.push_debug_group("wormhole object draw");
 
-        {
-            for mesh in self.meshes {
-                let index_start = mesh.index_offset / std::mem::size_of::<u32>() as u32;
-                let index_end = index_start + mesh.index_count;
+        let index_start = self.index_offset / std::mem::size_of::<u32>() as u32;
+        let index_end = index_start + self.index_count;
 
-                let instance_start = mesh.instance_index;
-                let instance_end = mesh.instance_index + 1;
+        let instance_start = self.instance_index;
+        let instance_end = self.instance_index + 1;
 
-                render_pass.draw_indexed(index_start..index_end, 0, instance_start..instance_end);
-            }
-        }
+        render_pass.draw_indexed(index_start..index_end, 0, instance_start..instance_end);
 
         render_pass.pop_debug_group();
     }

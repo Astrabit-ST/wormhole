@@ -28,7 +28,7 @@ pub struct Writer<'buf> {
 
 impl Buffer {
     pub fn new(render_state: &render::State, usage: wgpu::BufferUsages) -> Self {
-        let instance_buffer_size = std::mem::size_of::<render::Instance>() * 1024;
+        let instance_buffer_size = std::mem::size_of::<render::MeshInstance>() * 1024;
 
         let instance_buffer = render_state
             .wgpu
@@ -56,9 +56,9 @@ impl Buffer {
 }
 
 impl<'buf> Writer<'buf> {
-    pub fn push(&mut self, instance: render::Instance) -> u64 {
-        let instance_offset =
-            self.cpu_instance_buffer.len() as u64 / std::mem::size_of::<render::Instance>() as u64;
+    pub fn push(&mut self, instance: render::MeshInstance) -> u64 {
+        let instance_offset = self.cpu_instance_buffer.len() as u64
+            / std::mem::size_of::<render::MeshInstance>() as u64;
 
         self.cpu_instance_buffer
             .extend(bytemuck::bytes_of(&instance));

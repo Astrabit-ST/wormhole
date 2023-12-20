@@ -16,10 +16,13 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::{input, render};
 
+use bevy_ecs::prelude::*;
+
 use winit::{event::MouseButton, keyboard::KeyCode};
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
+#[derive(Resource)]
 pub struct Camera {
     pub projection: Projection,
     pub transform: Transform,

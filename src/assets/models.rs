@@ -90,14 +90,19 @@ impl Models {
         self.models.insert(id, model)
     }
 
-    pub fn load_tobj(&mut self, path: impl AsRef<camino::Utf8Path>) -> Id {
-        self.load_tobj_with_options(path, &tobj::GPU_LOAD_OPTIONS)
+    pub fn load_tobj(
+        &mut self,
+        path: impl AsRef<camino::Utf8Path>,
+        material_id: assets::MaterialId,
+    ) -> Id {
+        self.load_tobj_with_options(path, &tobj::GPU_LOAD_OPTIONS, material_id)
     }
 
     pub fn load_tobj_with_options(
         &mut self,
         path: impl AsRef<camino::Utf8Path>,
         load_options: &tobj::LoadOptions,
+        material_id: assets::MaterialId,
     ) -> Id {
         let path = path.as_ref();
         let id = Id::from_path(path);
@@ -107,7 +112,7 @@ impl Models {
             let (meshes, _) = tobj::load_obj(path, load_options).expect("failed to load models");
             let meshes = meshes
                 .into_iter()
-                .map(|m| render::Mesh::from_tobj_mesh(m.mesh))
+                .map(|m| render::Mesh::from_tobj_mesh(m.mesh, material_id))
                 .map(Arc::new)
                 .collect();
 
