@@ -16,6 +16,7 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::assets;
 use crate::components;
+use crate::player;
 use crate::render;
 use crate::scene;
 
@@ -28,7 +29,7 @@ pub fn render(
     mut buffers: ResMut<scene::Buffers>,
     mut meshes: ResMut<scene::Meshes>,
     mut assets: ResMut<assets::Loader>,
-    camera_query: Query<(&components::Camera, &components::Transform)>,
+    player: Res<player::Player>,
     object_query: Query<(&components::Transform, &components::MeshRenderer)>,
     light_query: Query<(&components::Transform, &components::Light)>,
 ) {
@@ -114,8 +115,7 @@ pub fn render(
             &render_state.bind_groups.object_data,
         );
 
-    let (camera, camera_transform) = camera_query.get_single().expect("no camera present");
-    let camera_data = camera.as_camera_data(camera_transform);
+    let camera_data = player.camera.as_camera_data(player.transform);
 
     encoder.pop_debug_group();
 
@@ -156,11 +156,10 @@ pub fn render(
     let output = match render_state.wgpu.surface.get_current_texture() {
         Ok(texture) => texture,
         Err(error @ (wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost)) => {
-            let config = render_state.wgpu.surface_config.lock();
             render_state
                 .wgpu
                 .surface
-                .configure(&render_state.wgpu.device, &config);
+                .configure(&render_state.wgpu.device, &render_state.wgpu.surface_config);
 
             eprintln!("surface error: {error:#?}");
 

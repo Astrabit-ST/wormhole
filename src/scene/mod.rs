@@ -18,6 +18,7 @@ use crate::assets;
 use crate::components;
 use crate::input;
 use crate::physics;
+use crate::player;
 use crate::render;
 use crate::systems;
 
@@ -79,6 +80,7 @@ impl Scene {
         let mut world = World::new();
         world.insert_resource(input::State::new(window));
         world.insert_resource(physics::State::new());
+        world.insert_resource(player::Player::new(&render_state));
 
         let mut assets = assets::Loader::new(&render_state);
         let mut meshes = Meshes::new(&render_state);

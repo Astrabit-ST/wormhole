@@ -40,10 +40,6 @@ pub mod assets {
     pub use materials::Materials;
 }
 
-pub mod bundles {
-    mod player;
-}
-
 pub mod components {
     mod transform;
     pub use transform::Transform;
@@ -128,3 +124,5 @@ pub mod systems {
     mod input;
     pub use input::input;
 }
+
+pub mod player;

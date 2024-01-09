@@ -34,17 +34,17 @@ pub struct Data {
 
 impl Camera {
     pub fn new(render_state: &render::State) -> Self {
-        let surface_config = render_state.wgpu.surface_config.lock();
-
+        let aspect = render_state.wgpu.surface_config.width as f32
+            / render_state.wgpu.surface_config.height as f32;
         Camera {
-            aspect: surface_config.width as f32 / surface_config.height as f32,
+            aspect,
             fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,
         }
     }
 
-    pub fn as_camera_data(self, transform: &components::Transform) -> Data {
+    pub fn as_camera_data(self, transform: components::Transform) -> Data {
         let projection_matrix =
             glam::Mat4::perspective_rh(self.fovy, self.aspect, self.znear, self.zfar);
         let transform_matrix =

@@ -19,15 +19,12 @@ use crate::{render, shaders};
 
 use bevy_ecs::prelude::*;
 
-use parking_lot::Mutex;
-use std::sync::Arc;
-
 #[derive(Resource)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct State {
-    pub wgpu: Arc<GpuState>,
-    pub bind_groups: Arc<BindGroups>,
-    pub pipelines: Arc<RenderPipelines>,
+    pub wgpu: GpuState,
+    pub bind_groups: BindGroups,
+    pub pipelines: RenderPipelines,
 }
 
 pub struct GpuCreated {
@@ -45,7 +42,7 @@ pub struct GpuState {
     pub surface: wgpu::Surface,
     // augh mutation behind an Arc SUCKS
     // todo maybe convert the sizes into atomics instead? we only update this when resizing the window
-    pub surface_config: Mutex<wgpu::SurfaceConfiguration>,
+    pub surface_config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -138,8 +135,6 @@ impl GpuCreated {
             view_formats: vec![],
         };
         surface.configure(&device, &surface_config);
-
-        let surface_config = Mutex::new(surface_config);
 
         let wgpu = GpuState {
             instance,
@@ -273,25 +268,26 @@ impl BindGroupsCreated {
             };
 
         State {
-            wgpu: Arc::new(self.wgpu),
-            bind_groups: Arc::new(self.bind_groups),
-            pipelines: Arc::new(RenderPipelines {
+            wgpu: self.wgpu,
+            bind_groups: self.bind_groups,
+            pipelines: RenderPipelines {
                 object,
                 light,
                 light_object,
-            }),
+            },
         }
     }
 }
 
 impl State {
-    pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
-            let mut config = self.wgpu.surface_config.lock();
-            config.width = size.width;
-            config.height = size.height;
+            self.wgpu.surface_config.width = size.width;
+            self.wgpu.surface_config.height = size.height;
 
-            self.wgpu.surface.configure(&self.wgpu.device, &config)
+            self.wgpu
+                .surface
+                .configure(&self.wgpu.device, &self.wgpu.surface_config)
         }
     }
 }

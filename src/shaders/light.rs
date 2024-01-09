@@ -80,7 +80,7 @@ pub fn create_light_object_render_pipeline(
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: render_state.wgpu.surface_config.lock().format,
+                    format: render_state.wgpu.surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -159,7 +159,7 @@ pub fn create_light_render_pipeline(
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: render_state.wgpu.surface_config.lock().format,
+                    format: render_state.wgpu.surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

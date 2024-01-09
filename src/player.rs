@@ -16,10 +16,19 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use bevy_ecs::prelude::*;
 
-use crate::components;
+use crate::{components, render};
 
-#[derive(Bundle)]
+#[derive(Resource)]
 pub struct Player {
-    camera: components::Camera,
-    transform: components::Transform,
+    pub camera: components::Camera,
+    pub transform: components::Transform,
+}
+
+impl Player {
+    pub fn new(render_state: &render::State) -> Self {
+        let camera = components::Camera::new(render_state);
+        let transform = components::Transform::new();
+
+        Self { camera, transform }
+    }
 }

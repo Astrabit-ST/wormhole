@@ -84,13 +84,11 @@ impl Texture {
     }
 
     pub fn new_screen_size(render_state: &render::State, format: TextureFormat) -> Self {
-        let surface_config = render_state.wgpu.surface_config.lock();
-
         Self::new(
             render_state,
             wgpu::Extent3d {
-                width: surface_config.width,
-                height: surface_config.height,
+                width: render_state.wgpu.surface_config.width,
+                height: render_state.wgpu.surface_config.height,
                 depth_or_array_layers: 1,
             },
             format,
@@ -197,16 +195,14 @@ impl Texture {
     }
 
     pub fn resize_to_screen(&mut self, render_state: &render::State) {
-        let surface_config = render_state.wgpu.surface_config.lock();
-
         let texture = render_state
             .wgpu
             .device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width: surface_config.width,
-                    height: surface_config.height,
+                    width: render_state.wgpu.surface_config.width,
+                    height: render_state.wgpu.surface_config.height,
                     depth_or_array_layers: 1,
                 },
                 dimension: wgpu::TextureDimension::D2,

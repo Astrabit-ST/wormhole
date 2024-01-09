@@ -23,7 +23,7 @@ use bevy_ecs::prelude::*;
 
 pub fn input(
     input_state: Res<input::State>,
-    render_state: Res<render::State>,
+    mut render_state: ResMut<render::State>,
     mut scene_buffers: ResMut<scene::Buffers>,
 ) {
     if let Some(size) = input_state.new_window_size() {
