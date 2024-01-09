@@ -81,6 +81,7 @@ impl std::hash::Hash for MeshRef {
 }
 
 impl PartialEq for MeshRef {
+    #[allow(clippy::unconditional_recursion)]
     fn eq(&self, other: &Self) -> bool {
         let self_ptr = Arc::as_ptr(&self.0);
         let other_ptr = Arc::as_ptr(&other.0);

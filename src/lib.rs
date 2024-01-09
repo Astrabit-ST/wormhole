@@ -40,6 +40,10 @@ pub mod assets {
     pub use materials::Materials;
 }
 
+pub mod bundles {
+    mod player;
+}
+
 pub mod components {
     mod transform;
     pub use transform::Transform;
@@ -47,8 +51,11 @@ pub mod components {
     pub mod light;
     pub use light::Light;
 
-    pub mod object;
-    pub use object::MeshRenderer;
+    pub mod mesh_renderer;
+    pub use mesh_renderer::MeshRenderer;
+
+    mod camera;
+    pub use camera::Camera;
 }
 
 pub mod input {
@@ -83,9 +90,6 @@ pub mod render {
 
     pub mod binding_helpers;
     pub use binding_helpers::{BindGroupBuilder, BindGroupLayoutBuilder};
-
-    mod camera;
-    pub use camera::Camera;
 
     mod color;
     pub use color::Color;

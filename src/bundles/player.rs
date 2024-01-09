@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Lily Lyons
+// Copyright (C) 2024 Lily Lyons
 //
 // This file is part of wormhole.
 //
@@ -14,23 +14,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-
-use crate::input;
-use crate::render;
-use crate::scene;
-
 use bevy_ecs::prelude::*;
 
-pub fn input(
-    input_state: Res<input::State>,
-    render_state: Res<render::State>,
-    mut scene_buffers: ResMut<scene::Buffers>,
-) {
-    if let Some(size) = input_state.new_window_size() {
-        render_state.resize(size);
-    }
+use crate::components;
 
-    if input_state.new_window_size().is_some() {
-        scene_buffers.gbuffer.resize_to_screen(&render_state);
-    }
+#[derive(Bundle)]
+pub struct Player {
+    camera: components::Camera,
+    transform: components::Transform,
 }

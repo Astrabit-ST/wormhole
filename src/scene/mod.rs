@@ -104,7 +104,6 @@ impl Scene {
         world.insert_resource(assets);
         world.insert_resource(meshes);
         world.insert_resource(Buffers::new(&render_state));
-        world.insert_resource(render::Camera::new(&render_state));
         world.insert_resource(render_state);
 
         let mut schedule = Schedule::default();

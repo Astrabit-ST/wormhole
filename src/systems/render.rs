@@ -25,10 +25,10 @@ use itertools::Itertools;
 
 pub fn render(
     render_state: Res<render::State>,
-    camera: Res<render::Camera>,
     mut buffers: ResMut<scene::Buffers>,
     mut meshes: ResMut<scene::Meshes>,
     mut assets: ResMut<assets::Loader>,
+    camera_query: Query<(&components::Camera, &components::Transform)>,
     object_query: Query<(&components::Transform, &components::MeshRenderer)>,
     light_query: Query<(&components::Transform, &components::Light)>,
 ) {
@@ -114,7 +114,8 @@ pub fn render(
             &render_state.bind_groups.object_data,
         );
 
-    let camera_data = camera.as_camera_data();
+    let (camera, camera_transform) = camera_query.get_single().expect("no camera present");
+    let camera_data = camera.as_camera_data(camera_transform);
 
     encoder.pop_debug_group();
 
