@@ -16,21 +16,70 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::input;
+use crate::player;
 use crate::render;
 use crate::scene;
 
 use bevy_ecs::prelude::*;
+use winit::event::MouseButton;
+use winit::keyboard::KeyCode;
 
 pub fn input(
     input_state: Res<input::State>,
     mut render_state: ResMut<render::State>,
     mut scene_buffers: ResMut<scene::Buffers>,
+    mut player: ResMut<player::Player>,
 ) {
     if let Some(size) = input_state.new_window_size() {
         render_state.resize(size);
     }
 
-    if input_state.new_window_size().is_some() {
+    if let Some(size) = input_state.new_window_size() {
         scene_buffers.gbuffer.resize_to_screen(&render_state);
+        player.camera.aspect = size.width as f32 / size.height as f32;
+    }
+
+    let forward = player.transform.forward();
+    let left = player.transform.left();
+    let dt = 1.0 / 144.0;
+
+    if input_state.keyboard.held(KeyCode::KeyW) {
+        player.transform.position += forward * 4.0 * dt;
+    }
+
+    if input_state.keyboard.held(KeyCode::KeyA) {
+        player.transform.position += left * 4.0 * dt;
+    }
+
+    if input_state.keyboard.held(KeyCode::KeyS) {
+        player.transform.position -= forward * 4.0 * dt;
+    }
+
+    if input_state.keyboard.held(KeyCode::KeyD) {
+        player.transform.position -= left * 4.0 * dt;
+    }
+
+    if input_state.keyboard.held(KeyCode::Space) {
+        player.transform.position.y += 4.0 * dt;
+    }
+
+    if input_state.keyboard.held(KeyCode::ShiftLeft) {
+        player.transform.position.y -= 4.0 * dt;
+    }
+
+    let (mouse_x, mouse_y) = input_state.mouse.mouse_diff();
+
+    let norm_mouse_x = mouse_x * 0.004;
+    let norm_mouse_y = mouse_y * 0.004;
+
+    #[cfg(not(feature = "capture_mouse"))]
+    if input_state.mouse.held(MouseButton::Left) {
+        player.transform.rotation *=
+            glam::Quat::from_euler(glam::EulerRot::XYZ, norm_mouse_y, norm_mouse_x, 0.0);
+    }
+    #[cfg(feature = "capture_mouse")]
+    {
+        player.transform.rotation *=
+            glam::Quat::from_euler(glam::EulerRot::XYZ, norm_mouse_y, norm_mouse_x, 0.0);
     }
 }

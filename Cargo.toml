@@ -9,12 +9,12 @@ resolver = "2"
 [dependencies]
 
 # Windowing
-winit = { version = "0.29.8", default-features = false, features = [
+winit = { version = "0.29.9", default-features = false, features = [
     "x11",
     "wayland",
     "wayland-dlopen",
     "wayland-csd-adwaita",
-    "rwh_05",
+    "rwh_06",
 ] }
 
 # Input
@@ -56,7 +56,7 @@ log = "0.4.20"
 env_logger = "0.10"
 
 tracy_full = "1.5.0"
-wgpu-profiler = { version = "0.15.0", features = ["tracy"] }
+# wgpu-profiler = { version = "0.15.0", features = ["tracy"] }
 
 # Game logic & Physics
 bevy_ecs = "0.12.1"
@@ -79,3 +79,8 @@ debug = true
 
 # [profile.dev.package.gltf]
 # opt-level = 3
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "4400a5847080d1164bdca93a90622414963ed9f3" }
+naga = { git = "https://github.com/gfx-rs/wgpu", rev = "4400a5847080d1164bdca93a90622414963ed9f3" }
+naga_oil = { git = "https://github.com/Dinnerbone/naga_oil/", branch = "naga_0_19" }

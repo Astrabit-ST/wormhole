@@ -39,7 +39,7 @@ pub struct BindGroupsCreated {
 #[derive(Debug)]
 pub struct GpuState {
     pub instance: wgpu::Instance,
-    pub surface: wgpu::Surface,
+    pub surface: wgpu::Surface<'static>,
     // augh mutation behind an Arc SUCKS
     // todo maybe convert the sizes into atomics instead? we only update this when resizing the window
     pub surface_config: wgpu::SurfaceConfiguration,
@@ -67,7 +67,7 @@ impl GpuCreated {
     /// # Safety
     ///
     /// See [`wgpu::Instance::create_surface`] for how to use this function safely.
-    pub async unsafe fn new(window: &winit::window::Window) -> Self {
+    pub async unsafe fn new(window: std::sync::Arc<winit::window::Window>) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all()),
             dx12_shader_compiler: wgpu::Dx12Compiler::default(), // FIXME: support up-to-date DX12 compiler
@@ -75,11 +75,9 @@ impl GpuCreated {
             gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
-        let surface = unsafe {
-            instance
-                .create_surface(&window)
-                .expect("failed to create window")
-        };
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("failed to create window");
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptionsBase {
@@ -100,13 +98,13 @@ impl GpuCreated {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("wgpu device"),
-                    limits: wgpu::Limits {
+                    required_limits: wgpu::Limits {
                         max_push_constant_size: 128,
                         max_sampled_textures_per_shader_stage: adapter_limits
                             .max_sampled_textures_per_shader_stage,
                         ..Default::default()
                     },
-                    features: wgpu::Features::PUSH_CONSTANTS
+                    required_features: wgpu::Features::PUSH_CONSTANTS
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::INDIRECT_FIRST_INSTANCE
                         | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING // TODO: do we need this?

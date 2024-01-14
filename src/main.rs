@@ -12,6 +12,7 @@ fn main() {
         // .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         .build(&event_loop)
         .expect("failed to create window");
+    let window = std::sync::Arc::new(window);
 
     #[cfg(feature = "capture_mouse")]
     if let Err(e) = window
@@ -25,7 +26,7 @@ fn main() {
     // This function is unsafe because the window must be valid as long as the surface is valid.
     // Because the surface is created after the window, the drop order ensures that the surface is dropped after the window.
     let render_state =
-        unsafe { pollster::block_on(wormhole::render::state::GpuCreated::new(&window)) }
+        unsafe { pollster::block_on(wormhole::render::state::GpuCreated::new(window.clone())) }
             .initialize_bind_group_layouts()
             .initialize_render_pipelines();
 

@@ -61,6 +61,18 @@ impl TextureFormat {
         usage: wgpu::TextureUsages::TEXTURE_BINDING.union(wgpu::TextureUsages::RENDER_ATTACHMENT),
         compare: None,
     };
+
+    pub const DEFAULT_VIEW_DESCRIPTOR: wgpu::TextureViewDescriptor<'static> =
+        wgpu::TextureViewDescriptor {
+            label: None,
+            format: None,
+            dimension: None,
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
+        };
 }
 
 impl Texture {
@@ -78,7 +90,7 @@ impl Texture {
                 usage: format.usage,
                 view_formats: &[],
             });
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&TextureFormat::DEFAULT_VIEW_DESCRIPTOR);
 
         Self { texture, view }
     }
@@ -118,9 +130,10 @@ impl Texture {
                 usage: format.usage,
                 view_formats: &[],
             },
+            wgpu::util::TextureDataOrder::LayerMajor,
             image,
         );
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&TextureFormat::DEFAULT_VIEW_DESCRIPTOR);
 
         Self { texture, view }
     }
@@ -187,9 +200,10 @@ impl Texture {
                     | wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
+            wgpu::util::TextureDataOrder::LayerMajor,
             &image,
         );
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&TextureFormat::DEFAULT_VIEW_DESCRIPTOR);
 
         Self { texture, view }
     }
@@ -212,7 +226,7 @@ impl Texture {
                 usage: self.texture.usage(),
                 view_formats: &[],
             });
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&TextureFormat::DEFAULT_VIEW_DESCRIPTOR);
         self.texture = texture;
         self.view = view;
     }

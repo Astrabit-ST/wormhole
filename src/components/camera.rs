@@ -48,7 +48,7 @@ impl Camera {
         let projection_matrix =
             glam::Mat4::perspective_rh(self.fovy, self.aspect, self.znear, self.zfar);
         let transform_matrix =
-            glam::Mat4::from_rotation_translation(transform.rotation, transform.position);
+            glam::Mat4::look_to_rh(transform.position, transform.forward(), glam::Vec3::Y);
         let view_proj = projection_matrix * transform_matrix;
         let view_pos = transform.position; // glam::Vec4::from((self.transform.position, 8008135_f32)); // :3
 

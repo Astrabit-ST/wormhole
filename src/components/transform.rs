@@ -68,6 +68,14 @@ impl Transform {
         }
     }
 
+    pub fn from_rotation(rotation: glam::Quat) -> Self {
+        Self {
+            position: glam::Vec3::ZERO,
+            rotation,
+            scale: glam::Vec3::ONE,
+        }
+    }
+
     pub fn from_position_scale(position: glam::Vec3, scale: glam::Vec3) -> Self {
         Self {
             position,
@@ -91,6 +99,44 @@ impl Transform {
             rotation: glam::Quat::from_array(rotation),
             scale: glam::Vec3::from_array(scale),
         }
+    }
+}
+
+impl Transform {
+    pub fn local_x(&self) -> glam::Vec3 {
+        self.rotation * glam::Vec3::X
+    }
+
+    pub fn local_y(&self) -> glam::Vec3 {
+        self.rotation * glam::Vec3::Y
+    }
+
+    pub fn local_z(&self) -> glam::Vec3 {
+        self.rotation * glam::Vec3::Z
+    }
+
+    pub fn left(&self) -> glam::Vec3 {
+        -self.local_x()
+    }
+
+    pub fn right(&self) -> glam::Vec3 {
+        self.local_x()
+    }
+
+    pub fn up(&self) -> glam::Vec3 {
+        self.local_y()
+    }
+
+    pub fn down(&self) -> glam::Vec3 {
+        -self.local_y()
+    }
+
+    pub fn forward(&self) -> glam::Vec3 {
+        -self.local_z()
+    }
+
+    pub fn back(&self) -> glam::Vec3 {
+        self.local_z()
     }
 }
 
