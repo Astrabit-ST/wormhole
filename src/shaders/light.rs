@@ -25,7 +25,8 @@ const SCREEN_VERTEX_DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBuffer
 
 pub fn create_light_object_render_pipeline(
     composer: &mut naga_oil::compose::Composer,
-    render_state: &render::state::BindGroupsCreated,
+    gpu_state: &render::state::GpuState,
+    bind_groups: &render::state::BindGroups,
 ) -> Result<wgpu::RenderPipeline, naga_oil::compose::ComposerError> {
     composer.add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
         source: include_str!("util.wgsl"),
@@ -45,28 +46,25 @@ pub fn create_light_object_render_pipeline(
     })?;
     let module = std::borrow::Cow::Owned(module);
 
-    let shader = render_state
-        .wgpu
+    let shader = gpu_state
         .device
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("light object render pipeline"),
             source: wgpu::ShaderSource::Naga(module),
         });
 
-    let layout = render_state
-        .wgpu
+    let layout = gpu_state
         .device
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("light object render pipeline layout"),
-            bind_group_layouts: &[&render_state.bind_groups.object_data],
+            bind_group_layouts: &[&bind_groups.object_data],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range: 0..64,
             }],
         });
 
-    Ok(render_state
-        .wgpu
+    Ok(gpu_state
         .device
         .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("light object render pipeline"),
@@ -80,7 +78,7 @@ pub fn create_light_object_render_pipeline(
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: render_state.wgpu.surface_config.format,
+                    format: gpu_state.surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -112,7 +110,8 @@ pub fn create_light_object_render_pipeline(
 
 pub fn create_light_render_pipeline(
     composer: &mut naga_oil::compose::Composer,
-    render_state: &render::state::BindGroupsCreated,
+    gpu_state: &render::state::GpuState,
+    bind_groups: &render::state::BindGroups,
 ) -> Result<wgpu::RenderPipeline, naga_oil::compose::ComposerError> {
     let module = composer.make_naga_module(naga_oil::compose::NagaModuleDescriptor {
         source: include_str!("light.wgsl"),
@@ -121,31 +120,25 @@ pub fn create_light_render_pipeline(
     })?;
     let module = std::borrow::Cow::Owned(module);
 
-    let shader = render_state
-        .wgpu
+    let shader = gpu_state
         .device
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("light render pipeline"),
             source: wgpu::ShaderSource::Naga(module),
         });
 
-    let layout = render_state
-        .wgpu
+    let layout = gpu_state
         .device
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("lighting render pipeline layout"),
-            bind_group_layouts: &[
-                &render_state.bind_groups.light_data,
-                &render_state.bind_groups.gbuffer,
-            ],
+            bind_group_layouts: &[&bind_groups.light_data, &bind_groups.gbuffer],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::FRAGMENT,
                 range: 0..16,
             }],
         });
 
-    Ok(render_state
-        .wgpu
+    Ok(gpu_state
         .device
         .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("light render pipeline"),
@@ -159,7 +152,7 @@ pub fn create_light_render_pipeline(
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: render_state.wgpu.surface_config.format,
+                    format: gpu_state.surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

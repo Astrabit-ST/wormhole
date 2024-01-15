@@ -18,7 +18,8 @@ use crate::render;
 
 pub fn create_render_pipeline(
     composer: &mut naga_oil::compose::Composer,
-    render_state: &render::state::BindGroupsCreated,
+    gpu_state: &render::state::GpuState,
+    bind_groups: &render::state::BindGroups,
 ) -> Result<wgpu::RenderPipeline, naga_oil::compose::ComposerError> {
     composer.add_composable_module(naga_oil::compose::ComposableModuleDescriptor {
         source: include_str!("../shaders/util.wgsl"),
@@ -38,31 +39,25 @@ pub fn create_render_pipeline(
     })?;
     let module = std::borrow::Cow::Owned(module);
 
-    let shader = render_state
-        .wgpu
+    let shader = gpu_state
         .device
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("object render pipeline"),
             source: wgpu::ShaderSource::Naga(module),
         });
 
-    let layout = render_state
-        .wgpu
+    let layout = gpu_state
         .device
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("object render pipeline layout"),
-            bind_group_layouts: &[
-                &render_state.bind_groups.object_data,
-                &render_state.bind_groups.materials,
-            ],
+            bind_group_layouts: &[&bind_groups.object_data, &bind_groups.materials],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range: 0..64,
             }],
         });
 
-    Ok(render_state
-        .wgpu
+    Ok(gpu_state
         .device
         .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("object render pipeline"),

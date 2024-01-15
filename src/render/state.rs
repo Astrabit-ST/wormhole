@@ -27,15 +27,6 @@ pub struct State {
     pub pipelines: RenderPipelines,
 }
 
-pub struct GpuCreated {
-    pub wgpu: GpuState,
-}
-
-pub struct BindGroupsCreated {
-    pub wgpu: GpuState,
-    pub bind_groups: BindGroups,
-}
-
 #[derive(Debug)]
 pub struct GpuState {
     pub instance: wgpu::Instance,
@@ -63,11 +54,8 @@ pub struct RenderPipelines {
     pub light_object: wgpu::RenderPipeline,
 }
 
-impl GpuCreated {
-    /// # Safety
-    ///
-    /// See [`wgpu::Instance::create_surface`] for how to use this function safely.
-    pub async unsafe fn new(window: std::sync::Arc<winit::window::Window>) -> Self {
+impl GpuState {
+    async fn new(window: std::sync::Arc<winit::window::Window>) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all()),
             dx12_shader_compiler: wgpu::Dx12Compiler::default(), // FIXME: support up-to-date DX12 compiler
@@ -134,150 +122,158 @@ impl GpuCreated {
         };
         surface.configure(&device, &surface_config);
 
-        let wgpu = GpuState {
+        Self {
             instance,
             surface,
             surface_config,
             adapter,
             device,
             queue,
-        };
-        Self { wgpu }
-    }
-
-    /// Initializes the bind group layouts of all uniforms passed to shaders.
-    /// Call this before initializing shaders, as they are dependent on these layouts.
-    pub fn initialize_bind_group_layouts(self) -> BindGroupsCreated {
-        const GENERIC_STORAGE: wgpu::BindingType = wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Storage { read_only: true },
-            has_dynamic_offset: false,
-            min_binding_size: None,
-        };
-        const GENERIC_TEXTURE: wgpu::BindingType = wgpu::BindingType::Texture {
-            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: wgpu::TextureViewDimension::D2,
-            multisampled: false,
-        };
-        const GENERIC_SAMPLER: wgpu::BindingType =
-            wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering);
-
-        let object_data = render::BindGroupLayoutBuilder::new()
-            // transforms
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            // vertex positions
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            // vertex normals
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            // vertex tex_coords
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            // vertex colors
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            // vertex tangents
-            .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
-            .build(
-                &self.wgpu.device,
-                Some("wormhole object data bind group layout"),
-            );
-
-        let materials = render::BindGroupLayoutBuilder::new()
-            // Sampler
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
-            // Textures
-            .append(
-                wgpu::ShaderStages::FRAGMENT,
-                GENERIC_TEXTURE,
-                // Limit size to the max sampled textures per shader stage
-                std::num::NonZeroU32::new(
-                    self.wgpu
-                        .device
-                        .limits()
-                        .max_sampled_textures_per_shader_stage,
-                ),
-            )
-            // Material data
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
-            .build(
-                &self.wgpu.device,
-                Some("wormhole material data bind group layout"),
-            );
-
-        let gbuffer = render::BindGroupLayoutBuilder::new()
-            // Sampler
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
-            // Color + roughness
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
-            // Normal + Metallicity
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
-            // Position + Occlusion
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
-            // Emissive
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
-            .build(
-                &self.wgpu.device,
-                Some("wormhole gbuffer bind group layout"),
-            );
-
-        let light_data = render::BindGroupLayoutBuilder::new()
-            .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
-            .build(
-                &self.wgpu.device,
-                Some("wormhole light data bind group layout"),
-            );
-
-        BindGroupsCreated {
-            wgpu: self.wgpu,
-            bind_groups: BindGroups {
-                object_data,
-                materials,
-                gbuffer,
-                light_data,
-            },
         }
     }
 }
 
-impl BindGroupsCreated {
-    /// Initializes the bind group layouts of all uniforms passed to shaders.
-    /// Call this before initializing shaders, as they are dependent on these layouts.
-    pub fn initialize_render_pipelines(self) -> State {
-        let mut composer = naga_oil::compose::Composer::default()
+fn initialize_bind_group_layouts(gpu_state: &GpuState) -> BindGroups {
+    const GENERIC_STORAGE: wgpu::BindingType = wgpu::BindingType::Buffer {
+        ty: wgpu::BufferBindingType::Storage { read_only: true },
+        has_dynamic_offset: false,
+        min_binding_size: None,
+    };
+    const GENERIC_TEXTURE: wgpu::BindingType = wgpu::BindingType::Texture {
+        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+        view_dimension: wgpu::TextureViewDimension::D2,
+        multisampled: false,
+    };
+    const GENERIC_SAMPLER: wgpu::BindingType =
+        wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering);
+
+    let object_data = render::BindGroupLayoutBuilder::new()
+        // transforms
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        // vertex positions
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        // vertex normals
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        // vertex tex_coords
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        // vertex colors
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        // vertex tangents
+        .append(wgpu::ShaderStages::VERTEX, GENERIC_STORAGE, None)
+        .build(
+            &gpu_state.device,
+            Some("wormhole object data bind group layout"),
+        );
+
+    let materials = render::BindGroupLayoutBuilder::new()
+        // Sampler
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
+        // Textures
+        .append(
+            wgpu::ShaderStages::FRAGMENT,
+            GENERIC_TEXTURE,
+            // Limit size to the max sampled textures per shader stage
+            std::num::NonZeroU32::new(
+                gpu_state
+                    .device
+                    .limits()
+                    .max_sampled_textures_per_shader_stage,
+            ),
+        )
+        // Material data
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
+        .build(
+            &gpu_state.device,
+            Some("wormhole material data bind group layout"),
+        );
+
+    let gbuffer = render::BindGroupLayoutBuilder::new()
+        // Sampler
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
+        // Color + roughness
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+        // Normal + Metallicity
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+        // Position + Occlusion
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+        // Emissive
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_TEXTURE, None)
+        .build(
+            &gpu_state.device,
+            Some("wormhole gbuffer bind group layout"),
+        );
+
+    let light_data = render::BindGroupLayoutBuilder::new()
+        .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)
+        .build(
+            &gpu_state.device,
+            Some("wormhole light data bind group layout"),
+        );
+
+    BindGroups {
+        object_data,
+        materials,
+        gbuffer,
+        light_data,
+    }
+}
+
+/// Initializes the bind group layouts of all uniforms passed to shaders.
+/// Call this before initializing shaders, as they are dependent on these layouts.
+pub fn initialize_render_pipelines(
+    gpu_state: &GpuState,
+    bind_groups: &BindGroups,
+) -> RenderPipelines {
+    let mut composer = naga_oil::compose::Composer::default()
             .with_capabilities(wgpu::naga::valid::Capabilities::PUSH_CONSTANT | wgpu::naga::valid::Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
-        let object = match shaders::object::create_render_pipeline(&mut composer, &self) {
+    let object =
+        match shaders::object::create_render_pipeline(&mut composer, gpu_state, bind_groups) {
             Ok(p) => p,
             Err(err) => {
                 let err = err.emit_to_string(&composer);
                 panic!("Error creating object render pipeline:\n{err}")
             }
         };
-        let light = match shaders::light::create_light_render_pipeline(&mut composer, &self) {
+    let light =
+        match shaders::light::create_light_render_pipeline(&mut composer, gpu_state, bind_groups) {
             Ok(p) => p,
             Err(err) => {
                 let err = err.emit_to_string(&composer);
                 panic!("Error creating light render pipeline:\n{err}")
             }
         };
-        let light_object =
-            match shaders::light::create_light_object_render_pipeline(&mut composer, &self) {
-                Ok(p) => p,
-                Err(err) => {
-                    let err = err.emit_to_string(&composer);
-                    panic!("Error creating light object render pipeline:\n{err}")
-                }
-            };
-
-        State {
-            wgpu: self.wgpu,
-            bind_groups: self.bind_groups,
-            pipelines: RenderPipelines {
-                object,
-                light,
-                light_object,
-            },
+    let light_object = match shaders::light::create_light_object_render_pipeline(
+        &mut composer,
+        gpu_state,
+        bind_groups,
+    ) {
+        Ok(p) => p,
+        Err(err) => {
+            let err = err.emit_to_string(&composer);
+            panic!("Error creating light object render pipeline:\n{err}")
         }
+    };
+
+    RenderPipelines {
+        object,
+        light,
+        light_object,
     }
 }
 
 impl State {
+    pub async fn new(window: std::sync::Arc<winit::window::Window>) -> Self {
+        let gpu_state = GpuState::new(window).await;
+        let bind_groups = initialize_bind_group_layouts(&gpu_state);
+        let pipelines = initialize_render_pipelines(&gpu_state, &bind_groups);
+
+        State {
+            wgpu: gpu_state,
+            bind_groups,
+            pipelines,
+        }
+    }
+
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
             self.wgpu.surface_config.width = size.width;

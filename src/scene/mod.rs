@@ -85,10 +85,22 @@ impl Scene {
         let mut assets = assets::Loader::new(&render_state);
         let mut meshes = Meshes::new(&render_state);
 
+        let base_color_id = assets
+            .textures
+            .load_from_path(&render_state, "assets/textures/cube-diffuse.jpg");
+        let normal_texture_id = assets
+            .textures
+            .load_from_path(&render_state, "assets/textures/cube-normal.png");
+
         let material_id = assets::MaterialId::from_path("cube_material");
-        assets
-            .materials
-            .insert(material_id, render::Material::default());
+        assets.materials.insert(
+            material_id,
+            render::Material {
+                base_color_texture: Some(base_color_id),
+                normal_texture: Some(normal_texture_id),
+                ..Default::default()
+            },
+        );
 
         let model_id = assets
             .models

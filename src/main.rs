@@ -22,13 +22,7 @@ fn main() {
         println!("error locking cursor {e}");
     }
 
-    // SAFETY:
-    // This function is unsafe because the window must be valid as long as the surface is valid.
-    // Because the surface is created after the window, the drop order ensures that the surface is dropped after the window.
-    let render_state =
-        unsafe { pollster::block_on(wormhole::render::state::GpuCreated::new(window.clone())) }
-            .initialize_bind_group_layouts()
-            .initialize_render_pipelines();
+    let render_state = pollster::block_on(wormhole::render::State::new(window.clone()));
 
     let mut scene = wormhole::scene::Scene::new(render_state, &window);
 
