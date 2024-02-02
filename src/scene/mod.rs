@@ -106,10 +106,13 @@ impl Scene {
             .models
             .load_tobj("assets/meshes/cube.obj", material_id);
         let mesh = assets.models.get_expect(model_id).meshes[0].clone();
-        world.spawn((
-            components::Transform::new(),
-            components::MeshRenderer::new(&mut meshes, mesh),
-        ));
+
+        for i in 0..10 {
+            world.spawn((
+                components::Transform::from_position(glam::vec3((i - 5) as f32 * 3., 0.0, 0.0)),
+                components::MeshRenderer::new(&mut meshes, mesh.clone()),
+            ));
+        }
         world.spawn((
             components::Transform::from_position(glam::vec3(0.0, 5.0, 0.0)),
             components::Light::new(&mut assets, &mut meshes),

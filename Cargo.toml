@@ -21,13 +21,13 @@ winit = { version = "0.29.9", default-features = false, features = [
 gilrs = "0.10.4"
 
 # Graphics
-wgpu = { version = "0.18.0", features = ["naga"] }
+wgpu = { version = "0.19.1", features = ["naga-ir"] }
 
 # Shaders & math
 bytemuck = { version = "1.13.1", features = ["derive"] }
 glam = { version = "0.25.0", features = ["mint", "bytemuck"] }
 encase = { version = "0.7.0", features = ["glam"] }
-naga_oil = "0.11.0"
+naga_oil = "0.13.0"
 
 # Asset loading
 image = "0.24.7"
@@ -53,34 +53,17 @@ crossbeam = "0.8.2"
 
 # Logging & profiling
 log = "0.4.20"
-env_logger = "0.10"
+env_logger = "0.11"
 
 tracy_full = "1.5.0"
 # wgpu-profiler = { version = "0.15.0", features = ["tracy"] }
 
 # Game logic & Physics
 bevy_ecs = "0.12.1"
-rapier3d = "0.17.2"
+rapier3d = "0.18.0"
 
 [features]
 capture_mouse = []
 
 [profile.release]
 debug = true
-
-# [profile.dev.package.wgpu]
-# opt-level = 3
-
-# [profile.dev.package.image]
-# opt-level = 3
-
-# [profile.dev.package.glam]
-# opt-level = 3
-
-# [profile.dev.package.gltf]
-# opt-level = 3
-
-[patch.crates-io]
-wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "4400a5847080d1164bdca93a90622414963ed9f3" }
-naga = { git = "https://github.com/gfx-rs/wgpu", rev = "4400a5847080d1164bdca93a90622414963ed9f3" }
-naga_oil = { git = "https://github.com/Dinnerbone/naga_oil/", branch = "naga_0_19" }

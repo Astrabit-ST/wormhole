@@ -30,9 +30,8 @@ pub struct State {
 #[derive(Debug)]
 pub struct GpuState {
     pub instance: wgpu::Instance,
+    // this 'static is probably wrong
     pub surface: wgpu::Surface<'static>,
-    // augh mutation behind an Arc SUCKS
-    // todo maybe convert the sizes into atomics instead? we only update this when resizing the window
     pub surface_config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
@@ -77,11 +76,20 @@ impl GpuState {
             .expect("failed to create adapter");
 
         let info = adapter.get_info();
+        let adapter_limits = adapter.limits();
         log::info!("Backend : {:?}", info.backend);
         log::info!("Device  : {}", info.name);
         log::info!("Driver  : {} {}", info.driver, info.driver_info);
+        log::info!("-- Limits --");
+        log::info!(
+            "Max buffer size (MB) : {}",
+            adapter_limits.max_buffer_size / 1048576
+        );
+        log::info!(
+            "Max sampled textures : {}",
+            adapter_limits.max_sampled_textures_per_shader_stage
+        );
 
-        let adapter_limits = adapter.limits();
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -116,9 +124,10 @@ impl GpuState {
             format: surface_format,
             width: window.inner_size().width,
             height: window.inner_size().height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode: wgpu::PresentMode::Immediate,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
+            desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &surface_config);
 
