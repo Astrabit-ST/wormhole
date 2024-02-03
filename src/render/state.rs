@@ -182,12 +182,7 @@ fn initialize_bind_group_layouts(gpu_state: &GpuState) -> BindGroups {
             wgpu::ShaderStages::FRAGMENT,
             GENERIC_TEXTURE,
             // Limit size to the max sampled textures per shader stage
-            std::num::NonZeroU32::new(
-                gpu_state
-                    .device
-                    .limits()
-                    .max_sampled_textures_per_shader_stage,
-            ),
+            std::num::NonZeroU32::new(1024),
         )
         // Material data
         .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)

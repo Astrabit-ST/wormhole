@@ -2,3 +2,14 @@
 !assets/meshes/**
 !assets/textures/**
 assets
+
+fmod/bin
+fmod/doc
+fmod/api/fsbank
+fmod/api/core/examples
+fmod/api/core/lib/arm*
+fmod/api/studio/lib/arm*
+fmod/api/studio/examples
+fmod/plugins
+*.cs
+*.hpp
