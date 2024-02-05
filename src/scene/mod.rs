@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+
 use crate::assets;
 use crate::components;
 use crate::input;
@@ -21,7 +22,9 @@ use crate::physics;
 use crate::player;
 use crate::render;
 use crate::systems;
+use crate::time;
 
+use bevy_ecs::event::event_queue_update_system;
 use bevy_ecs::prelude::*;
 
 mod schedules;
@@ -161,8 +164,18 @@ impl Scene {
             .add_schedule(fixed_main_loop_schedule)
             .init_resource::<MainScheduleOrder>()
             .init_resource::<FixedMainScheduleOrder>()
-            .add_systems(Main, Main::run_main)
-            .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .init_resource::<time::Time>()
+            .init_resource::<time::Time<time::Real>>()
+            .init_resource::<time::Time<time::Virtual>>()
+            .init_resource::<time::Time<time::Fixed>>()
+            .init_resource::<bevy_ecs::event::EventUpdateSignal>()
+            .insert_resource(physics::State::new())
+            .insert_resource(input::State::new())
+            .insert_resource(player::Player::new(&render_state))
+            .insert_resource(assets::Loader::new(&render_state))
+            .insert_resource(Meshes::new(&render_state))
+            .insert_resource(Buffers::new(&render_state))
+            .insert_resource(render_state)
             .add_event::<input::KeyboardEvent>()
             .add_event::<input::KeyboardEvent>()
             .add_event::<input::MouseButtonEvent>()
@@ -171,18 +184,24 @@ impl Scene {
             .add_event::<input::WindowResized>()
             .add_event::<input::CloseRequested>()
             .add_event::<input::Exit>()
-            .insert_resource(physics::State::new())
-            .insert_resource(input::State::new())
-            .insert_resource(player::Player::new(&render_state))
-            .insert_resource(assets::Loader::new(&render_state))
-            .insert_resource(Meshes::new(&render_state))
-            .insert_resource(Buffers::new(&render_state))
-            .insert_resource(render_state)
+            .add_systems(Main, Main::run_main)
+            .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .add_systems(
+                First,
+                (
+                    systems::update_time,
+                    systems::update_virtual_time.after(systems::update_time),
+                )
+                    .in_set(systems::TimeSystem),
+            )
             .add_systems(
                 PreUpdate,
                 (systems::keyboard_input_system.in_set(systems::InputSystem),),
             )
-            .add_systems(Update, (systems::render, systems::input))
+            .add_systems(RunFixedMainLoop, systems::run_fixed_main_schedule)
+            .add_systems(FixedUpdate, systems::input)
+            .add_systems(FixedPostUpdate, event_queue_update_system)
+            .add_systems(Update, systems::render)
             .build();
 
         Self { world }

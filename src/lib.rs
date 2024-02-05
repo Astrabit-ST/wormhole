@@ -126,6 +126,11 @@ pub mod systems {
 
     mod input;
     pub use input::*;
+
+    pub mod time;
+    pub use time::*;
 }
+
+pub mod time;
 
 pub mod player;

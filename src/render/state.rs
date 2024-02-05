@@ -71,7 +71,8 @@ impl GpuState {
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptionsBase {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: wgpu::util::power_preference_from_env()
+                    .unwrap_or(wgpu::PowerPreference::HighPerformance),
                 force_fallback_adapter: false,
                 compatible_surface: Some(&surface),
             })
