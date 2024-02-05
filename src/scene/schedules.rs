@@ -17,7 +17,7 @@
 
 use bevy_ecs::prelude::*;
 
-use bevy_ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
+use bevy_ecs::schedule::{ExecutorKind, InternedScheduleLabel, ScheduleLabel};
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Main;
@@ -145,4 +145,24 @@ impl FixedMain {
             }
         });
     }
+}
+
+pub fn init_into(builder: &mut super::WorldBuilder) {
+    let mut main_schedule = Schedule::new(Main);
+    main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+    let mut fixed_main_shedule = Schedule::new(FixedMain);
+    fixed_main_shedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+    let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+    fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+    builder
+        .add_schedule(main_schedule)
+        .add_schedule(fixed_main_shedule)
+        .add_schedule(fixed_main_loop_schedule)
+        .init_resource::<MainScheduleOrder>()
+        .init_resource::<FixedMainScheduleOrder>()
+        .add_systems(Main, Main::run_main)
+        .add_systems(FixedMain, FixedMain::run_fixed_main);
 }

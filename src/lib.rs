@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-#![warn(clippy::suspicious, clippy::complexity, clippy::perf, clippy::style)]
+#![warn(clippy::suspicious, clippy::perf, clippy::style)]
 #![allow(clippy::new_without_default)]
 
 pub mod assets {
@@ -38,6 +38,13 @@ pub mod assets {
     mod materials;
     pub use materials::Id as MaterialId;
     pub use materials::Materials;
+
+    use crate::render;
+    use crate::scene;
+
+    pub fn init_into(render_state: &render::State, builder: &mut scene::WorldBuilder) {
+        builder.insert_resource(Loader::new(render_state));
+    }
 }
 
 pub mod components {
@@ -69,11 +76,47 @@ pub mod input {
 
     mod state;
     pub use state::State;
+
+    mod systems;
+
+    use crate::scene;
+    use bevy_ecs::prelude::*;
+
+    pub fn init_into(builder: &mut scene::WorldBuilder) {
+        builder
+            .insert_resource(State::new())
+            .add_event::<KeyboardEvent>()
+            .add_event::<KeyboardEvent>()
+            .add_event::<MouseButtonEvent>()
+            .add_event::<MouseWheel>()
+            .add_event::<MouseMotion>()
+            .add_event::<WindowResized>()
+            .add_event::<CloseRequested>()
+            .add_event::<Exit>()
+            .add_systems(
+                scene::PreUpdate,
+                (
+                    systems::keyboard,
+                    systems::mouse,
+                    systems::close_requested,
+                    systems::window_resize,
+                )
+                    .in_set(systems::InputSystem),
+            );
+    }
 }
 
 pub mod physics {
     pub mod state;
     pub use state::State;
+
+    pub mod systems;
+
+    use crate::scene;
+
+    pub fn init_into(builder: &mut scene::WorldBuilder) {
+        builder.insert_resource(State::new());
+    }
 }
 
 pub mod render {
@@ -111,6 +154,16 @@ pub mod render {
 
     pub mod material;
     pub use material::Material;
+
+    pub mod system;
+
+    use crate::scene;
+
+    pub fn init_into(render_state: State, builder: &mut scene::WorldBuilder) {
+        builder
+            .insert_resource(render_state)
+            .add_systems(scene::Update, system::render);
+    }
 }
 
 pub mod scene;
@@ -118,17 +171,6 @@ pub mod scene;
 pub mod shaders {
     pub mod light;
     pub mod object;
-}
-
-pub mod systems {
-    mod render;
-    pub use render::render;
-
-    mod input;
-    pub use input::*;
-
-    pub mod time;
-    pub use time::*;
 }
 
 pub mod time;

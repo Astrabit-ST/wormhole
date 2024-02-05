@@ -87,6 +87,14 @@ impl State {
         vector
     }
 
+    pub fn reset_close_requested(&mut self) {
+        self.close_requested = false;
+    }
+
+    pub fn reset_window_size(&mut self) {
+        self.new_size = None
+    }
+
     pub fn close_requested(&self) -> bool {
         self.close_requested
     }

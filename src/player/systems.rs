@@ -19,26 +19,15 @@ use crate::input;
 use crate::player;
 use crate::render;
 use crate::scene;
+use crate::time;
 
 use bevy_ecs::prelude::*;
 use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct InputSystem;
-
-pub fn keyboard_input_system(
-    mut input_state: ResMut<'_, input::State>,
-    mut keyboard_events: EventReader<input::KeyboardEvent>,
-) {
-    input_state.bypass_change_detection().keyboard.start_frame();
-    for &event in keyboard_events.read() {
-        input_state.keyboard.process(event);
-    }
-}
-
-pub fn input(
+pub fn movement(
     input_state: Res<input::State>,
+    time: Res<time::Time<time::Fixed>>,
     mut render_state: ResMut<render::State>,
     mut scene_buffers: ResMut<scene::Buffers>,
     mut exit_event_writer: EventWriter<input::Exit>,
@@ -55,33 +44,32 @@ pub fn input(
 
     let forward = player.transform.forward();
     let left = player.transform.left();
-    let dt = 1.0 / 144.0;
 
     if input_state.keyboard.held(KeyCode::KeyW) {
-        player.transform.position += forward * 4.0 * dt;
+        player.transform.position += forward * 4.0 * time.delta_seconds();
     }
 
     if input_state.keyboard.held(KeyCode::KeyA) {
-        player.transform.position += left * 4.0 * dt;
+        player.transform.position += left * 4.0 * time.delta_seconds();
     }
 
     if input_state.keyboard.held(KeyCode::KeyS) {
-        player.transform.position -= forward * 4.0 * dt;
+        player.transform.position -= forward * 4.0 * time.delta_seconds();
     }
 
     if input_state.keyboard.held(KeyCode::KeyD) {
-        player.transform.position -= left * 4.0 * dt;
+        player.transform.position -= left * 4.0 * time.delta_seconds();
     }
 
     if input_state.keyboard.held(KeyCode::Space) {
-        player.transform.position.y += 4.0 * dt;
+        player.transform.position.y += 4.0 * time.delta_seconds();
     }
 
     if input_state.keyboard.held(KeyCode::ShiftLeft) {
-        player.transform.position.y -= 4.0 * dt;
+        player.transform.position.y -= 4.0 * time.delta_seconds();
     }
 
-    if input_state.keyboard.pressed(KeyCode::Escape) {
+    if input_state.keyboard.pressed(KeyCode::Escape) || input_state.close_requested() {
         exit_event_writer.send(input::Exit);
     }
 

@@ -21,16 +21,17 @@ use crate::input;
 use crate::physics;
 use crate::player;
 use crate::render;
-use crate::systems;
 use crate::time;
 
-use bevy_ecs::event::event_queue_update_system;
 use bevy_ecs::prelude::*;
 
-mod schedules;
-use bevy_ecs::schedule::ExecutorKind;
 use bevy_ecs::schedule::ScheduleLabel;
+
+mod schedules;
 pub use schedules::*;
+
+mod world_builder;
+pub use world_builder::WorldBuilder;
 
 mod meshes;
 pub use meshes::{MeshIndex, Meshes};
@@ -82,127 +83,23 @@ pub struct PrepareResources<'buf> {
     pub assets: &'buf assets::Loader,
 }
 
-struct WorldBuilder {
-    world: World,
-}
-
-impl WorldBuilder {
-    fn new() -> Self {
-        let mut world = World::new();
-        world.init_resource::<Schedules>();
-
-        Self { world }
-    }
-
-    fn add_schedule(mut self, schedule: Schedule) -> Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
-
-        self
-    }
-
-    fn init_resource<R: Resource + FromWorld>(mut self) -> Self {
-        self.world.init_resource::<R>();
-        self
-    }
-
-    fn insert_resource(mut self, resource: impl Resource) -> Self {
-        self.world.insert_resource(resource);
-        self
-    }
-
-    fn add_systems<M>(
-        mut self,
-        schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
-    ) -> Self {
-        let schedule = schedule.intern();
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(schedule) {
-            schedule.add_systems(systems);
-        } else {
-            let mut new_schedule = Schedule::new(schedule);
-            new_schedule.add_systems(systems);
-            schedules.insert(new_schedule);
-        }
-
-        self
-    }
-
-    fn add_event<T: Event>(self) -> Self {
-        if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>().add_systems(
-                First,
-                bevy_ecs::event::event_update_system::<T>
-                    .run_if(bevy_ecs::event::event_update_condition::<T>),
-            )
-        } else {
-            self
-        }
-    }
-
-    fn build(self) -> World {
-        self.world
-    }
-}
-
 impl Scene {
     pub fn new(render_state: render::State) -> Self {
-        let mut main_schedule = Schedule::new(Main);
-        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut builder = WorldBuilder::new();
 
-        let mut fixed_main_shedule = Schedule::new(FixedMain);
-        fixed_main_shedule.set_executor_kind(ExecutorKind::SingleThreaded);
-
-        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
-        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-
-        let world = WorldBuilder::new()
-            .add_schedule(main_schedule)
-            .add_schedule(fixed_main_shedule)
-            .add_schedule(fixed_main_loop_schedule)
-            .init_resource::<MainScheduleOrder>()
-            .init_resource::<FixedMainScheduleOrder>()
-            .init_resource::<time::Time>()
-            .init_resource::<time::Time<time::Real>>()
-            .init_resource::<time::Time<time::Virtual>>()
-            .init_resource::<time::Time<time::Fixed>>()
-            .init_resource::<bevy_ecs::event::EventUpdateSignal>()
-            .insert_resource(physics::State::new())
-            .insert_resource(input::State::new())
-            .insert_resource(player::Player::new(&render_state))
-            .insert_resource(assets::Loader::new(&render_state))
+        builder
             .insert_resource(Meshes::new(&render_state))
-            .insert_resource(Buffers::new(&render_state))
-            .insert_resource(render_state)
-            .add_event::<input::KeyboardEvent>()
-            .add_event::<input::KeyboardEvent>()
-            .add_event::<input::MouseButtonEvent>()
-            .add_event::<input::MouseWheel>()
-            .add_event::<input::MouseMotion>()
-            .add_event::<input::WindowResized>()
-            .add_event::<input::CloseRequested>()
-            .add_event::<input::Exit>()
-            .add_systems(Main, Main::run_main)
-            .add_systems(FixedMain, FixedMain::run_fixed_main)
-            .add_systems(
-                First,
-                (
-                    systems::update_time,
-                    systems::update_virtual_time.after(systems::update_time),
-                )
-                    .in_set(systems::TimeSystem),
-            )
-            .add_systems(
-                PreUpdate,
-                (systems::keyboard_input_system.in_set(systems::InputSystem),),
-            )
-            .add_systems(RunFixedMainLoop, systems::run_fixed_main_schedule)
-            .add_systems(FixedUpdate, systems::input)
-            .add_systems(FixedPostUpdate, event_queue_update_system)
-            .add_systems(Update, systems::render)
-            .build();
+            .insert_resource(Buffers::new(&render_state));
+
+        schedules::init_into(&mut builder);
+        time::init_into(&mut builder);
+        physics::init_into(&mut builder);
+        input::init_into(&mut builder);
+        assets::init_into(&render_state, &mut builder);
+        player::init_into(&render_state, &mut builder);
+        render::init_into(render_state, &mut builder);
+
+        let world = builder.build();
 
         Self { world }
     }
