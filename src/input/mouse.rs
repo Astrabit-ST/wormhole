@@ -14,7 +14,9 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
-use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta};
+
+use super::{MouseButtonEvent, MouseMotion, MouseWheel};
 
 pub struct Mouse {
     mouse_diff: Option<(f32, f32)>,
@@ -55,48 +57,33 @@ impl Mouse {
         self.current.cursor = None;
     }
 
-    pub fn process_window(&mut self, event: &WindowEvent) {
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                self.current.cursor = Some((position.x as f32, position.y as f32));
+    pub fn process_button(&mut self, event: MouseButtonEvent) {
+        match event.button {
+            MouseButton::Left => self.current.left = matches!(event.state, ElementState::Pressed),
+            MouseButton::Right => self.current.right = matches!(event.state, ElementState::Pressed),
+            MouseButton::Middle => {
+                self.current.middle = matches!(event.state, ElementState::Pressed)
             }
-            WindowEvent::MouseInput { state, button, .. } => match button {
-                MouseButton::Left => self.current.left = matches!(state, ElementState::Pressed),
-                MouseButton::Right => self.current.right = matches!(state, ElementState::Pressed),
-                MouseButton::Middle => self.current.middle = matches!(state, ElementState::Pressed),
-                MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => {} // todo maybe handle
-            },
-            WindowEvent::MouseWheel { delta, .. } => match delta {
-                MouseScrollDelta::LineDelta(x, y) => self.scroll_diff = (*x, *y),
-                MouseScrollDelta::PixelDelta(delta) => {
-                    self.scroll_diff = (
-                        delta.x as f32 / PIXELS_PER_LINE,
-                        delta.y as f32 / PIXELS_PER_LINE,
-                    )
-                }
-            },
-            _ => {}
+            MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => {} // todo maybe handle
         }
     }
 
-    pub fn process_device(&mut self, event: &DeviceEvent) {
-        match event {
-            // This gives us raw deltas without the OS meddling, which is perfect for a first person camera
-            // winit_input_helper lacks this, which is why I made this input handler
-            DeviceEvent::MouseMotion { delta } => {
-                self.mouse_diff = Some((delta.0 as f32, delta.1 as f32))
+    pub fn process_mouse_wheel(&mut self, event: MouseWheel) {
+        match event.delta {
+            MouseScrollDelta::LineDelta(x, y) => self.scroll_diff = (x, y),
+            MouseScrollDelta::PixelDelta(delta) => {
+                self.scroll_diff = (
+                    delta.x as f32 / PIXELS_PER_LINE,
+                    delta.y as f32 / PIXELS_PER_LINE,
+                )
             }
-            DeviceEvent::MouseWheel { delta } => match delta {
-                MouseScrollDelta::LineDelta(x, y) => self.scroll_diff = (*x, *y),
-                MouseScrollDelta::PixelDelta(delta) => {
-                    self.scroll_diff = (
-                        delta.x as f32 / PIXELS_PER_LINE,
-                        delta.y as f32 / PIXELS_PER_LINE,
-                    )
-                }
-            },
-            _ => {}
         }
+    }
+
+    pub fn process_mouse_motion(&mut self, event: MouseMotion) {
+        // This gives us raw deltas without the OS meddling, which is perfect for a first person camera
+        // winit_input_helper lacks this, which is why I made this input handler
+        self.mouse_diff = Some((event.delta.x, event.delta.y))
     }
 
     pub fn mouse_diff(&self) -> (f32, f32) {

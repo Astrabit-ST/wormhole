@@ -24,10 +24,24 @@ use bevy_ecs::prelude::*;
 use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
+pub struct InputSystem;
+
+pub fn keyboard_input_system(
+    mut input_state: ResMut<'_, input::State>,
+    mut keyboard_events: EventReader<input::KeyboardEvent>,
+) {
+    input_state.bypass_change_detection().keyboard.start_frame();
+    for &event in keyboard_events.read() {
+        input_state.keyboard.process(event);
+    }
+}
+
 pub fn input(
     input_state: Res<input::State>,
     mut render_state: ResMut<render::State>,
     mut scene_buffers: ResMut<scene::Buffers>,
+    mut exit_event_writer: EventWriter<input::Exit>,
     mut player: ResMut<player::Player>,
 ) {
     if let Some(size) = input_state.new_window_size() {
@@ -65,6 +79,10 @@ pub fn input(
 
     if input_state.keyboard.held(KeyCode::ShiftLeft) {
         player.transform.position.y -= 4.0 * dt;
+    }
+
+    if input_state.keyboard.pressed(KeyCode::Escape) {
+        exit_event_writer.send(input::Exit);
     }
 
     let (mouse_x, mouse_y) = input_state.mouse.mouse_diff();

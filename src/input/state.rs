@@ -16,12 +16,11 @@
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 use crate::input;
 
-use winit::{
-    event::{Event, WindowEvent},
-    keyboard::KeyCode,
-};
+use winit::keyboard::KeyCode;
 
 use bevy_ecs::prelude::*;
+
+use super::WindowResized;
 
 #[derive(Resource)]
 pub struct State {
@@ -31,21 +30,13 @@ pub struct State {
 
     close_requested: bool,
     new_size: Option<winit::dpi::PhysicalSize<u32>>,
-    window_id: winit::window::WindowId,
-    monitor_resolution: winit::dpi::PhysicalSize<u32>,
 }
 
 impl State {
-    pub fn new(window: &winit::window::Window) -> Self {
+    pub fn new() -> Self {
         let keyboard = input::Keyboard::new();
         let mouse = input::Mouse::new();
         let controller = input::Controller::new();
-
-        let monitor_resolution = window
-            .current_monitor()
-            .as_ref()
-            .map(winit::monitor::MonitorHandle::size)
-            .unwrap_or_default();
 
         Self {
             keyboard,
@@ -54,8 +45,6 @@ impl State {
 
             close_requested: false,
             new_size: None,
-            window_id: window.id(),
-            monitor_resolution,
         }
     }
 
@@ -68,35 +57,12 @@ impl State {
         self.close_requested = false;
     }
 
-    pub fn process<T>(
-        &mut self,
-        event: &winit::event::Event<T>,
-        window: &winit::window::Window,
-    ) -> bool {
-        match event {
-            Event::NewEvents(_) => self.start_frame(),
-            Event::WindowEvent { event, window_id } if *window_id == self.window_id => {
-                match event {
-                    WindowEvent::Resized(size) => self.new_size = Some(*size),
-                    // if the window has moved, it might have moved to another monitor.
-                    WindowEvent::Moved(_) => {
-                        if let Some(monitor) = window.current_monitor() {
-                            self.monitor_resolution = monitor.size();
-                        }
-                    }
-                    WindowEvent::CloseRequested => self.close_requested = true,
-                    event => {
-                        self.keyboard.process(event);
-                        self.mouse.process_window(event);
-                    }
-                }
-            }
-            Event::DeviceEvent { event, .. } => {
-                self.mouse.process_device(event);
-            }
-            _ => {}
-        }
-        matches!(event, winit::event::Event::AboutToWait)
+    pub fn process_resize(&mut self, resize: WindowResized) {
+        self.new_size = Some(resize.size);
+    }
+
+    pub fn process_close_requsted(&mut self) {
+        self.close_requested = true;
     }
 
     pub fn move_direction(&self) -> glam::Vec2 {
@@ -127,9 +93,5 @@ impl State {
 
     pub fn new_window_size(&self) -> Option<winit::dpi::PhysicalSize<u32>> {
         self.new_size
-    }
-
-    pub fn monitor_resolution(&self) -> winit::dpi::PhysicalSize<u32> {
-        self.monitor_resolution
     }
 }

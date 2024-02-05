@@ -24,12 +24,16 @@ use crate::systems;
 
 use bevy_ecs::prelude::*;
 
+mod schedules;
+use bevy_ecs::schedule::ExecutorKind;
+use bevy_ecs::schedule::ScheduleLabel;
+pub use schedules::*;
+
 mod meshes;
 pub use meshes::{MeshIndex, Meshes};
 
 pub struct Scene {
-    world: World,
-    schedule: Schedule,
+    pub world: World,
 }
 
 #[derive(Resource)]
@@ -75,81 +79,118 @@ pub struct PrepareResources<'buf> {
     pub assets: &'buf assets::Loader,
 }
 
-impl Scene {
-    pub fn new(render_state: render::State, window: &winit::window::Window) -> Self {
+struct WorldBuilder {
+    world: World,
+}
+
+impl WorldBuilder {
+    fn new() -> Self {
         let mut world = World::new();
-        world.insert_resource(input::State::new(window));
-        world.insert_resource(physics::State::new());
-        world.insert_resource(player::Player::new(&render_state));
+        world.init_resource::<Schedules>();
 
-        let mut assets = assets::Loader::new(&render_state);
-        let mut meshes = Meshes::new(&render_state);
-
-        let base_color_id = assets
-            .textures
-            .load_from_path(&render_state, "assets/textures/cube-diffuse.jpg");
-        let normal_texture_id = assets
-            .textures
-            .load_from_path(&render_state, "assets/textures/cube-normal.png");
-
-        let material_id = assets::MaterialId::from_path("cube_material");
-        assets.materials.insert(
-            material_id,
-            render::Material {
-                base_color_texture: Some(base_color_id),
-                normal_texture: Some(normal_texture_id),
-                ..Default::default()
-            },
-        );
-
-        let model_id = assets
-            .models
-            .load_tobj("assets/meshes/cube.obj", material_id);
-        let mesh = assets.models.get_expect(model_id).meshes[0].clone();
-
-        for i in 0..10 {
-            world.spawn((
-                components::Transform::from_position(glam::vec3((i - 5) as f32 * 3., 0.0, 0.0)),
-                components::MeshRenderer::new(&mut meshes, mesh.clone()),
-            ));
-        }
-        world.spawn((
-            components::Transform::from_position(glam::vec3(0.0, 5.0, 0.0)),
-            components::Light::new(&mut assets, &mut meshes),
-        ));
-
-        world.insert_resource(assets);
-        world.insert_resource(meshes);
-        world.insert_resource(Buffers::new(&render_state));
-        world.insert_resource(render_state);
-
-        let mut schedule = Schedule::default();
-        schedule.add_systems(systems::render);
-        schedule.add_systems(systems::input);
-
-        Self { world, schedule }
+        Self { world }
     }
 
-    pub fn process_event<T>(
-        &mut self,
-        event: &winit::event::Event<T>,
-        target: &winit::event_loop::EventLoopWindowTarget<T>,
-        window: &winit::window::Window,
-    ) {
-        let mut input_state = self.world.resource_mut::<input::State>();
-        // let render_state = self.world.resource::<render::State>();
+    fn add_schedule(mut self, schedule: Schedule) -> Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        schedules.insert(schedule);
 
-        if input_state.process(event, window) {
-            if input_state.close_requested()
-                || input_state
-                    .keyboard
-                    .pressed(winit::keyboard::KeyCode::Escape)
-            {
-                target.exit();
-            }
+        self
+    }
 
-            self.schedule.run(&mut self.world);
+    fn init_resource<R: Resource + FromWorld>(mut self) -> Self {
+        self.world.init_resource::<R>();
+        self
+    }
+
+    fn insert_resource(mut self, resource: impl Resource) -> Self {
+        self.world.insert_resource(resource);
+        self
+    }
+
+    fn add_systems<M>(
+        mut self,
+        schedule: impl ScheduleLabel,
+        systems: impl IntoSystemConfigs<M>,
+    ) -> Self {
+        let schedule = schedule.intern();
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(schedule) {
+            schedule.add_systems(systems);
+        } else {
+            let mut new_schedule = Schedule::new(schedule);
+            new_schedule.add_systems(systems);
+            schedules.insert(new_schedule);
         }
+
+        self
+    }
+
+    fn add_event<T: Event>(self) -> Self {
+        if !self.world.contains_resource::<Events<T>>() {
+            self.init_resource::<Events<T>>().add_systems(
+                First,
+                bevy_ecs::event::event_update_system::<T>
+                    .run_if(bevy_ecs::event::event_update_condition::<T>),
+            )
+        } else {
+            self
+        }
+    }
+
+    fn build(self) -> World {
+        self.world
+    }
+}
+
+impl Scene {
+    pub fn new(render_state: render::State) -> Self {
+        let mut main_schedule = Schedule::new(Main);
+        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        let mut fixed_main_shedule = Schedule::new(FixedMain);
+        fixed_main_shedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        let world = WorldBuilder::new()
+            .add_schedule(main_schedule)
+            .add_schedule(fixed_main_shedule)
+            .add_schedule(fixed_main_loop_schedule)
+            .init_resource::<MainScheduleOrder>()
+            .init_resource::<FixedMainScheduleOrder>()
+            .add_systems(Main, Main::run_main)
+            .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .add_event::<input::KeyboardEvent>()
+            .add_event::<input::KeyboardEvent>()
+            .add_event::<input::MouseButtonEvent>()
+            .add_event::<input::MouseWheel>()
+            .add_event::<input::MouseMotion>()
+            .add_event::<input::WindowResized>()
+            .add_event::<input::CloseRequested>()
+            .add_event::<input::Exit>()
+            .insert_resource(physics::State::new())
+            .insert_resource(input::State::new())
+            .insert_resource(player::Player::new(&render_state))
+            .insert_resource(assets::Loader::new(&render_state))
+            .insert_resource(Meshes::new(&render_state))
+            .insert_resource(Buffers::new(&render_state))
+            .insert_resource(render_state)
+            .add_systems(
+                PreUpdate,
+                (systems::keyboard_input_system.in_set(systems::InputSystem),),
+            )
+            .add_systems(Update, (systems::render, systems::input))
+            .build();
+
+        Self { world }
+    }
+
+    pub fn update(&mut self) {
+        self.world.run_schedule(Main.intern());
+        self.world.clear_trackers();
     }
 }
 

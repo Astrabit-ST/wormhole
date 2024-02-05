@@ -27,6 +27,9 @@ pub struct State {
     pub pipelines: RenderPipelines,
 }
 
+pub const MAX_TEXTURE_COUNT: u32 = 1 << 17;
+const BGL_DIVISOR: u32 = 4;
+
 #[derive(Debug)]
 pub struct GpuState {
     pub instance: wgpu::Instance,
@@ -174,6 +177,10 @@ fn initialize_bind_group_layouts(gpu_state: &GpuState) -> BindGroups {
             Some("wormhole object data bind group layout"),
         );
 
+    let limits = gpu_state.device.limits();
+    let texture_count =
+        (limits.max_sampled_textures_per_shader_stage / BGL_DIVISOR).min(MAX_TEXTURE_COUNT);
+
     let materials = render::BindGroupLayoutBuilder::new()
         // Sampler
         .append(wgpu::ShaderStages::FRAGMENT, GENERIC_SAMPLER, None)
@@ -182,7 +189,7 @@ fn initialize_bind_group_layouts(gpu_state: &GpuState) -> BindGroups {
             wgpu::ShaderStages::FRAGMENT,
             GENERIC_TEXTURE,
             // Limit size to the max sampled textures per shader stage
-            std::num::NonZeroU32::new(1024),
+            std::num::NonZeroU32::new(texture_count),
         )
         // Material data
         .append(wgpu::ShaderStages::FRAGMENT, GENERIC_STORAGE, None)

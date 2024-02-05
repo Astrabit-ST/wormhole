@@ -58,6 +58,9 @@ pub mod input {
     mod keyboard;
     pub use keyboard::Keyboard;
 
+    mod events;
+    pub use events::*;
+
     mod mouse;
     pub use mouse::Mouse;
 
@@ -122,7 +125,7 @@ pub mod systems {
     pub use render::render;
 
     mod input;
-    pub use input::input;
+    pub use input::*;
 }
 
 pub mod player;
