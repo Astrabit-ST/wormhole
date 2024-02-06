@@ -63,7 +63,7 @@ impl Time<Real> {
         };
         let delta = instant - last_update;
         self.advance_by(delta);
-        self.context_mut().last_update = Some(last_update);
+        self.context_mut().last_update = Some(instant);
     }
 
     pub fn startup(&self) -> Instant {

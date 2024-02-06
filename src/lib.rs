@@ -110,12 +110,29 @@ pub mod physics {
     pub mod state;
     pub use state::State;
 
+    mod components {
+        mod rigid_body;
+        pub use rigid_body::RigidBody;
+    }
+    pub use components::*;
+
     pub mod systems;
 
     use crate::scene;
+    use bevy_ecs::prelude::*;
 
     pub fn init_into(builder: &mut scene::WorldBuilder) {
-        builder.insert_resource(State::new());
+        builder
+            .insert_resource(State::new())
+            .configure_sets(
+                scene::FixedUpdate,
+                (systems::SyncData, systems::Step, systems::WriteBack).chain(),
+            )
+            .add_systems(scene::FixedUpdate, (systems::step).in_set(systems::Step))
+            .add_systems(
+                scene::FixedUpdate,
+                (systems::write_back_rigid_bodies).in_set(systems::WriteBack),
+            );
     }
 }
 

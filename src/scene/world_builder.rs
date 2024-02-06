@@ -47,6 +47,25 @@ impl WorldBuilder {
         self
     }
 
+    pub fn configure_sets(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        sets: impl IntoSystemSetConfigs,
+    ) -> &mut Self {
+        let schedule = schedule.intern();
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(schedule) {
+            schedule.configure_sets(sets);
+        } else {
+            let mut new_schedule = Schedule::new(schedule);
+            new_schedule.configure_sets(sets);
+            schedules.insert(new_schedule);
+        }
+
+        self
+    }
+
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,

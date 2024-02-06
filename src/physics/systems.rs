@@ -14,3 +14,38 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
+
+use bevy_ecs::prelude::*;
+
+use crate::components;
+use crate::physics;
+use crate::time;
+
+#[derive(SystemSet, Clone, Copy, Hash, Debug, PartialEq, Eq)]
+pub struct SyncData;
+
+#[derive(SystemSet, Clone, Copy, Hash, Debug, PartialEq, Eq)]
+pub struct Step;
+
+#[derive(SystemSet, Clone, Copy, Hash, Debug, PartialEq, Eq)]
+pub struct WriteBack;
+
+pub fn step(mut physics_state: ResMut<'_, physics::State>, time: Res<'_, time::Time<time::Fixed>>) {
+    physics_state.integration_parameters.dt = time.delta_seconds();
+    physics_state.step();
+}
+
+pub fn write_back_rigid_bodies(
+    physics_state: ResMut<'_, physics::State>,
+    mut query: Query<(With<physics::RigidBody>, &mut components::Transform)>,
+) {
+    for (_, rigid_body) in physics_state.rigid_body_set.iter() {
+        let entity = Entity::from_bits(rigid_body.user_data as u64);
+        if let Ok(mut transform) = query.get_component_mut::<components::Transform>(entity) {
+            let translation = rigid_body.translation();
+            let rotation = rigid_body.rotation();
+            transform.position = glam::vec3(translation.x, translation.y, translation.z);
+            transform.rotation = glam::quat(rotation.i, rotation.j, rotation.k, rotation.w);
+        }
+    }
+}

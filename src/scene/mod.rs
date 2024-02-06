@@ -24,10 +24,12 @@ use crate::render;
 use crate::time;
 
 use bevy_ecs::prelude::*;
+use rapier3d::prelude::*;
 
 use bevy_ecs::schedule::ScheduleLabel;
 
 mod schedules;
+use bevy_ecs::system::SystemState;
 pub use schedules::*;
 
 mod world_builder;
@@ -99,7 +101,80 @@ impl Scene {
         player::init_into(&render_state, &mut builder);
         render::init_into(render_state, &mut builder);
 
-        let world = builder.build();
+        let mut world = builder.build();
+
+        let mut system_state = SystemState::<(
+            ResMut<assets::Loader>,
+            Res<render::State>,
+            ResMut<Meshes>,
+            ResMut<physics::State>,
+            Commands,
+        )>::from_world(&mut world);
+
+        let (mut assets, render_state, mut meshes, mut physics_state, mut commands) =
+            system_state.get_mut(&mut world);
+        let physics_state = &mut *physics_state;
+
+        let diffuse_id = assets
+            .textures
+            .load_from_path(&render_state, "assets/textures/cube-diffuse.jpg");
+        let normal_id = assets
+            .textures
+            .load_from_path(&render_state, "assets/textures/cube-normal.png");
+
+        let material_id = assets::MaterialId::from_path("cube_material");
+        assets.materials.insert(
+            material_id,
+            render::Material {
+                base_color_texture: Some(diffuse_id),
+                normal_texture: Some(normal_id),
+                ..Default::default()
+            },
+        );
+
+        let model_id = assets
+            .models
+            .load_tobj("assets/meshes/cube.obj", material_id);
+        let model = assets.models.get_expect(model_id);
+        let mesh = model.meshes[0].clone();
+
+        let light = components::Light::new(&mut assets, &mut meshes);
+        commands.spawn((
+            components::Transform::from_position(glam::vec3(0.0, 5.0, 0.0)),
+            light,
+        ));
+
+        let mesh_renderer = components::MeshRenderer::new(&mut meshes, mesh.clone());
+        let mut entity_builder = commands.spawn((components::Transform::default(), mesh_renderer));
+
+        let rigid_body = RigidBodyBuilder::dynamic().additional_mass(1.0).build();
+        let rigid_body = physics::RigidBody::new(physics_state, entity_builder.id(), rigid_body);
+
+        let collider = ColliderBuilder::cuboid(1.1, 1.1, 1.1)
+            .restitution(0.9)
+            .build();
+        physics_state.collider_set.insert_with_parent(
+            collider,
+            rigid_body.handle,
+            &mut physics_state.rigid_body_set,
+        );
+        entity_builder.insert(rigid_body);
+
+        let mesh_renderer = components::MeshRenderer::new(&mut meshes, mesh);
+        commands.spawn((
+            components::Transform::from_position_scale(
+                glam::vec3(0.0, -4.0, 0.0),
+                glam::vec3(100.0, 0.1, 100.0),
+            ),
+            mesh_renderer,
+        ));
+
+        let collider = ColliderBuilder::cuboid(100.0, 0.1, 100.0)
+            .translation(vector![0.0, -4.0, 0.0])
+            .build();
+        physics_state.collider_set.insert(collider);
+
+        system_state.apply(&mut world);
 
         Self { world }
     }

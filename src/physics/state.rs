@@ -36,7 +36,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         let physics_pipeline = PhysicsPipeline::new();
-        let gravity = vector![0.0, 9.81, 0.0];
+        let gravity = vector![0.0, -9.81, 0.0];
         let integration_parameters = IntegrationParameters::default();
         let island_manager = IslandManager::new();
         let broad_phase = BroadPhase::new();

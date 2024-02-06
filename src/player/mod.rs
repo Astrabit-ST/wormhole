@@ -34,7 +34,7 @@ impl Player {
     pub fn new(render_state: &render::State) -> Self {
         let camera = components::Camera::new(render_state);
         let transform = components::Transform::from_position_rotation(
-            glam::vec3(0.0, 0.0, 0.0),
+            glam::vec3(0.0, 0.0, 10.0),
             glam::Quat::from_euler(glam::EulerRot::XYZ, 0.0, 0.0, 0.0),
         );
 

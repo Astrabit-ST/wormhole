@@ -66,8 +66,8 @@ impl Light {
         let model_index = scene_models.upload_mesh(model.meshes[0].clone());
 
         let constant = 1.0;
-        let linear = 0.07;
-        let quadratic = 0.017;
+        let linear = 0.022;
+        let quadratic = 0.0019;
 
         let ambient = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
         let diffuse = render::Color::from_rgb_normalized(glam::vec3(1.0, 1.0, 1.0));
