@@ -123,8 +123,13 @@ pub fn init_into(builder: &mut scene::WorldBuilder) {
                 .in_set(systems::TimeSystem),
         )
         .add_systems(scene::RunFixedMainLoop, systems::run_fixed_main_schedule)
+        .init_resource::<bevy_ecs::event::EventUpdateSignal>()
+        .add_systems(
+            scene::First,
+            bevy_ecs::event::reset_event_update_signal_system.after(bevy_ecs::event::EventUpdates),
+        )
         .add_systems(
             scene::FixedPostUpdate,
-            bevy_ecs::event::event_queue_update_system,
+            bevy_ecs::event::signal_event_update_system,
         );
 }

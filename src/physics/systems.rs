@@ -37,11 +37,11 @@ pub fn step(mut physics_state: ResMut<'_, physics::State>, time: Res<'_, time::T
 
 pub fn write_back_rigid_bodies(
     physics_state: ResMut<'_, physics::State>,
-    mut query: Query<(With<physics::RigidBody>, &mut components::Transform)>,
+    mut query: Query<&mut components::Transform, With<physics::RigidBody>>,
 ) {
     for (_, rigid_body) in physics_state.rigid_body_set.iter() {
         let entity = Entity::from_bits(rigid_body.user_data as u64);
-        if let Ok(mut transform) = query.get_component_mut::<components::Transform>(entity) {
+        if let Ok(mut transform) = query.get_mut(entity) {
             let translation = rigid_body.translation();
             let rotation = rigid_body.rotation();
             transform.position = glam::vec3(translation.x, translation.y, translation.z);

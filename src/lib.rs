@@ -94,7 +94,7 @@ pub mod input {
             .add_event::<CloseRequested>()
             .add_event::<Exit>()
             .add_systems(
-                scene::PreUpdate,
+                scene::FixedUpdate,
                 (
                     systems::keyboard,
                     systems::mouse,

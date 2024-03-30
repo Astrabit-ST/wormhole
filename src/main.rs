@@ -59,24 +59,32 @@ fn main() {
                     event_writers_system_state.get_mut(&mut scene.world);
 
                 match event {
-                    WindowEvent::Resized(size) => event_writers
-                        .window_resized
-                        .send(wormhole::input::WindowResized { size }),
-                    WindowEvent::CloseRequested => event_writers
-                        .close_requested
-                        .send(wormhole::input::CloseRequested),
+                    WindowEvent::Resized(size) => {
+                        event_writers
+                            .window_resized
+                            .send(wormhole::input::WindowResized { size });
+                    }
+                    WindowEvent::CloseRequested => {
+                        event_writers
+                            .close_requested
+                            .send(wormhole::input::CloseRequested);
+                    }
                     WindowEvent::KeyboardInput { event, .. } => {
                         event_writers.keyboard.send(wormhole::input::KeyboardEvent {
                             key_code: event.physical_key,
                             state: event.state,
                         });
                     }
-                    WindowEvent::MouseInput { state, button, .. } => event_writers
-                        .mouse_button
-                        .send(wormhole::input::MouseButtonEvent { button, state }),
-                    WindowEvent::MouseWheel { delta, .. } => event_writers
-                        .mouse_wheel
-                        .send(wormhole::input::MouseWheel { delta }),
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        event_writers
+                            .mouse_button
+                            .send(wormhole::input::MouseButtonEvent { button, state });
+                    }
+                    WindowEvent::MouseWheel { delta, .. } => {
+                        event_writers
+                            .mouse_wheel
+                            .send(wormhole::input::MouseWheel { delta });
+                    }
                     WindowEvent::RedrawRequested => {
                         scene.update();
                     }
