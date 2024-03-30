@@ -1,7 +1,8 @@
 /target
-!assets/meshes/**
-!assets/textures/**
-assets
+
+fmod-project/.unsaved
+fmod-project/.user
+fmod-project/.cache
 
 fmod/bin
 fmod/doc
