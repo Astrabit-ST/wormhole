@@ -4,13 +4,6 @@ fmod-project/.unsaved
 fmod-project/.user
 fmod-project/.cache
 
-fmod/bin
-fmod/doc
-fmod/api/fsbank
-fmod/api/core/examples
-fmod/api/core/lib/arm*
-fmod/api/studio/lib/arm*
-fmod/api/studio/examples
-fmod/plugins
+fmod/
 *.cs
 *.hpp
