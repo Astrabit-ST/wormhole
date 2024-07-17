@@ -17,4 +17,4 @@
  along with wormhole.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-fhgsdjvdchmcsscxdjghsdxgnsxgdfzj hi
+An old scrapped game idea. Feel free to use the code!
